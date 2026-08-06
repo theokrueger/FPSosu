@@ -2,6 +2,8 @@
 <Project>
   <PropertyGroup>
     <ApplicationManifest>$(MSBuildThisFileDirectory)app.manifest</ApplicationManifest>
+    <!-- Matches the osu! convention, and is required by the nullable annotations used throughout this ruleset. -->
+    <Nullable>enable</Nullable>
   </PropertyGroup>
   <PropertyGroup Label="Documentation">
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
