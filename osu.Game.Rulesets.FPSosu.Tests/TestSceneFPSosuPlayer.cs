@@ -47,7 +47,11 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             AddUntilStep("wait for objects", () => aliveObjects().Any());
 
             AddStep("move mouse right", () => moveMouseBy(new Vector2(80, 0)));
-            AddUntilStep("camera turned right", () => camera.Yaw > 0.01f);
+            AddUntilStep("camera turned right", () =>
+            {
+                TestContext.Out.WriteLine($"yaw={camera.Yaw} allow={drawableRuleset.KeyBindingInputManager.AllowCameraControl} useParent={drawableRuleset.KeyBindingInputManager.UseParentInput} ownPos={playfield.ToLocalSpace(drawableRuleset.KeyBindingInputManager.CurrentState.Mouse.Position)} testMgrPos={playfield.ToLocalSpace(InputManager.CurrentState.Mouse.Position)}");
+                return camera.Yaw > 0.01f;
+            });
 
             AddStep("move mouse left past centre", () => moveMouseBy(new Vector2(-200, 0)));
             AddUntilStep("camera turned left", () => camera.Yaw < -0.01f);
@@ -151,6 +155,33 @@ namespace osu.Game.Rulesets.FPSosu.Tests
                 var extent = playfield.Projector.AngularExtent;
                 return camera.AngularLimit.X >= extent.X - 1e-4f && camera.AngularLimit.Y >= extent.Y - 1e-4f;
             });
+        }
+
+        /// <summary>
+        /// When the ruleset is not taking input, as when paused, moving the mouse must not rotate the camera or drag
+        /// the cursor back to the crosshair. That is what leaves the cursor free to navigate the pause menu.
+        /// </summary>
+        [Test]
+        public void TestMouseIgnoredWhenPassThroughDisabled()
+        {
+            AddUntilStep("wait for objects", () => aliveObjects().Any());
+
+            float yawBefore = 0;
+            float pitchBefore = 0;
+
+            AddStep("disable pass-through as pause does", () =>
+            {
+                yawBefore = camera.Yaw;
+                pitchBefore = camera.Pitch;
+                drawableRuleset.KeyBindingInputManager.UseParentInput = false;
+            });
+
+            AddStep("move the mouse", () => moveMouseBy(new Vector2(800, 800)));
+            AddWaitStep("let updates run", 10);
+            AddAssert("camera did not rotate", () => camera.Yaw == yawBefore && camera.Pitch == pitchBefore);
+
+            AddStep("restore pass-through", () => drawableRuleset.KeyBindingInputManager.UseParentInput = true);
+            AddWaitStep("let it resync", 5);
         }
 
         private IEnumerable<DrawableOsuHitObject> aliveObjects()

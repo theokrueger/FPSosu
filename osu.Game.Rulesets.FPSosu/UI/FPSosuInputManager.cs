@@ -53,12 +53,14 @@ namespace osu.Game.Rulesets.FPSosu.UI
         private readonly BindableBool invertPitch = new BindableBool();
 
         /// <summary>
-        /// Whether mouse movement should rotate the camera.
+        /// Whether mouse movement should rotate the camera and pin the cursor to the crosshair.
         /// </summary>
         /// <remarks>
-        /// Disabled during replay playback, where the camera is aimed from replay frames instead.
+        /// Only the input manager hosting the playfield enables this. The one hosting the resume overlay leaves it
+        /// off so overlay cursors stay free, and it is also cleared during replay playback, where the camera is aimed
+        /// from replay frames instead.
         /// </remarks>
-        public bool AllowCameraControl { get; set; } = true;
+        public bool AllowCameraControl { get; set; }
 
         /// <summary>
         /// Provides the screen-space point the cursor is held at, which is the centre of the playfield where the
@@ -70,6 +72,12 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// The parent input manager, whose cursor position is the one the OS actually tracks.
         /// </summary>
         private InputManager? parentInputManager;
+
+        /// <summary>
+        /// Whether camera control was active on the previous frame. Used to tell the first frame back from the
+        /// pause menu apart, so the movement made over the menu is not applied as camera rotation.
+        /// </summary>
+        private bool wasControlling;
 
         public FPSosuInputManager(RulesetInfo ruleset)
             : base(ruleset)
@@ -94,8 +102,9 @@ namespace osu.Game.Rulesets.FPSosu.UI
         {
             // Movement is consumed in Update() by comparing against the parent's cursor position, because the
             // high-frequency mouse move events the framework synthesises each frame carry no usable delta
-            // (their "last position" is set equal to their current position).
-            if (e is MouseMoveEvent && AllowCameraControl)
+            // (their "last position" is set equal to their current position). Only swallow movement during active
+            // gameplay, so the cursor stays free to navigate the pause menu.
+            if (e is MouseMoveEvent && AllowCameraControl && UseParentInput)
                 return true;
 
             return base.Handle(e);
@@ -131,21 +140,39 @@ namespace osu.Game.Rulesets.FPSosu.UI
         {
             base.Update();
 
-            if (!AllowCameraControl || parentInputManager == null)
+            var parent = parentInputManager;
+
+            // UseParentInput is only true during active gameplay: the drawable ruleset clears it while paused and a
+            // replay handler clears it during replays. Bailing out here leaves the cursor free for the pause menu.
+            if (parent == null || !AllowCameraControl || !UseParentInput)
+            {
+                wasControlling = false;
                 return;
+            }
 
             // Lock to the centre of the playfield, which is where the crosshair sits. That is not the same as the
             // centre of this manager, because the playfield is letterboxed and shifted within it.
             Vector2 target = LockPosition?.Invoke() ?? ToScreenSpace(DrawSize / 2);
 
-            // However far the OS cursor has drifted from the centre since the last frame is this frame's turn.
-            if (parentInputManager.CurrentState.Mouse.IsPositionValid)
-                rotateBy(parentInputManager.CurrentState.Mouse.Position - target);
+            if (wasControlling)
+            {
+                // However far the OS cursor has drifted from the centre since the last frame is this frame's turn.
+                if (parent.CurrentState.Mouse.IsPositionValid)
+                {
+                    var drift = parent.CurrentState.Mouse.Position - target;
+                    if (drift.LengthSquared > 1f)
+                        System.Diagnostics.Debug.WriteLine($"FPS drift={drift} target={target} parentPos={parent.CurrentState.Mouse.Position}");
+                    rotateBy(drift);
+                }
+            }
 
-            // Warp the OS cursor back to the centre. This is what lets the player keep turning without running into
-            // the edge of the window, and it keeps the next frame's drift measured from a known origin.
-            if (parentInputManager.CurrentState.Mouse.Position != target)
-                new MousePositionAbsoluteInput { Position = target }.Apply(parentInputManager.CurrentState, parentInputManager);
+            wasControlling = true;
+
+            // Warp the OS cursor back to the centre. On the first frame back from the pause menu this also discards
+            // the movement made over the menu, since no rotation was applied above. It is what lets the player keep
+            // turning without running into the edge of the window.
+            if (parent.CurrentState.Mouse.Position != target)
+                new MousePositionAbsoluteInput { Position = target }.Apply(parent.CurrentState, parent);
 
             // Hold this manager's own cursor at the crosshair, where hits are registered.
             if (CurrentState.Mouse.Position != target)

@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
@@ -115,6 +116,14 @@ namespace osu.Game.Rulesets.FPSosu.UI
             if (drawable is not DrawableOsuHitObject osuObject)
                 return;
 
+            // Sliders are extended objects, so a single position and uniform scale would leave their far end in the
+            // wrong place under perspective. They are projected by their head and tail instead.
+            if (osuObject is DrawableSlider slider)
+            {
+                projectSlider(slider, yaw, pitch);
+                return;
+            }
+
             var world = projector.PlayfieldToWorld(osuObject.HitObject.StackedPosition);
 
             if (!projector.WorldToPlayfield(world, yaw, pitch, out Vector2 position, out float scale))
@@ -131,6 +140,49 @@ namespace osu.Game.Rulesets.FPSosu.UI
             // rescaling them with perspective would only shrink the area the player has to work with.
             if (osuObject is not DrawableSpinner)
                 osuObject.Scale = new Vector2(scale);
+        }
+
+        /// <summary>
+        /// Projects a slider by anchoring its head and tail at their true projected positions, so the body follows
+        /// the perspective instead of swimming as the camera turns.
+        /// </summary>
+        private void projectSlider(DrawableSlider slider, float yaw, float pitch)
+        {
+            var hitObject = slider.HitObject;
+
+            Vector2 headPlayfield = hitObject.StackedPosition;
+            Vector2 tailPlayfield = headPlayfield + hitObject.Path.PositionAt(1);
+
+            if (!projector.WorldToPlayfield(projector.PlayfieldToWorld(headPlayfield), yaw, pitch, out Vector2 headScreen, out float headScale))
+            {
+                // Head is behind the camera; hide the whole slider rather than draw a mirrored ghost.
+                slider.Alpha = 0;
+                return;
+            }
+
+            slider.Alpha = 1;
+
+            if (projector.WorldToPlayfield(projector.PlayfieldToWorld(tailPlayfield), yaw, pitch, out Vector2 tailScreen, out _))
+            {
+                Vector2 localSpan = tailPlayfield - headPlayfield;
+                Vector2 screenSpan = tailScreen - headScreen;
+
+                // The transform that carries the head to its projection and the tail to its projection. Guarded for
+                // degenerate spans (a nearly zero-length slider, or one seen exactly end-on).
+                if (localSpan.LengthSquared > 1e-6f && screenSpan.LengthSquared > 1e-6f)
+                {
+                    slider.Position = headScreen;
+                    slider.Scale = new Vector2(screenSpan.Length / localSpan.Length);
+                    slider.Rotation = float.RadiansToDegrees(
+                        MathF.Atan2(screenSpan.Y, screenSpan.X) - MathF.Atan2(localSpan.Y, localSpan.X));
+                    return;
+                }
+            }
+
+            // Tail unavailable (behind the camera or degenerate). Fall back to point projection at the head.
+            slider.Position = headScreen;
+            slider.Scale = new Vector2(headScale);
+            slider.Rotation = 0;
         }
 
         /// <summary>

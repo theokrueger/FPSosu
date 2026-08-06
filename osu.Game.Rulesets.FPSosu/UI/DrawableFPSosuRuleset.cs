@@ -68,7 +68,21 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
         protected override Playfield CreatePlayfield() => new FPSosuPlayfield();
 
-        protected override PassThroughInputManager CreateInputManager() => new FPSosuInputManager(Ruleset.RulesetInfo);
+        private bool primaryInputManagerCreated;
+
+        protected override PassThroughInputManager CreateInputManager()
+        {
+            // The ruleset calls this twice: once for the playfield's input manager and once more to host the resume
+            // overlay. Only the first (primary) one should drive the camera and pin the cursor; the second must leave
+            // the cursor alone so overlays such as the pause menu can be navigated.
+            var manager = new FPSosuInputManager(Ruleset.RulesetInfo)
+            {
+                AllowCameraControl = !primaryInputManagerCreated
+            };
+
+            primaryInputManagerCreated = true;
+            return manager;
+        }
 
         protected override ReplayInputHandler CreateReplayInputHandler(Replay replay)
         {
