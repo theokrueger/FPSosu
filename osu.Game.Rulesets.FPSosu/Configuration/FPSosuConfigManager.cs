@@ -29,6 +29,9 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
             SetDefault(FPSosuRulesetSetting.CrosshairOvershoot, 45f, 0f, 120f, 5f);
             SetDefault(FPSosuRulesetSetting.InvertPitch, false);
             SetDefault(FPSosuRulesetSetting.ShowCrosshair, true);
+            SetDefault(FPSosuRulesetSetting.CrosshairSize, 1f, 0.5f, 3f, 0.1f);
+            SetDefault(FPSosuRulesetSetting.CrosshairOutline, true);
+            SetDefault(FPSosuRulesetSetting.CrosshairColour, FPSosuCrosshairColour.White);
         }
     }
 
@@ -70,5 +73,31 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
         /// Whether the centred crosshair is drawn.
         /// </summary>
         ShowCrosshair,
+
+        /// <summary>
+        /// Scale multiplier for the crosshair.
+        /// </summary>
+        CrosshairSize,
+
+        /// <summary>
+        /// Whether a contrasting outline is drawn around the crosshair for visibility.
+        /// </summary>
+        CrosshairOutline,
+
+        /// <summary>
+        /// The colour of the crosshair.
+        /// </summary>
+        CrosshairColour,
+    }
+
+    /// <summary>
+    /// The preset colours the crosshair can be drawn in.
+    /// </summary>
+    public enum FPSosuCrosshairColour
+    {
+        White,
+        Red,
+        Green,
+        Blue,
     }
 }

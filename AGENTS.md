@@ -39,16 +39,15 @@ Two settings shape the projection, and they are deliberately **independent**:
 
 In `Dome` mode the playfield offset is treated as arc length on a sphere, so equal playfield distances always cost equal angular movement. The dome radius cancels out of both position and scale. In `Plane` mode the beatmap stays a flat rectangle, so its edges require progressively more turning, like a flat monitor target.
 
+Because a smaller playfield span packs objects closer together, object size also scales with the span, keeping circles proportional to the gaps between them. Sliders are an extended shape, so they are projected by their head and tail rather than a single point; this keeps the whole body following the perspective instead of the far end swimming as the camera turns.
+
 ### Input Handling
 
-Camera control depends on two framework behaviours:
+`FPSosuInputManager` turns the frame-to-frame movement of the parent input manager's cursor into camera rotation. Measuring consecutive-position deltas (rather than recentering the cursor and reading its offset) applies every movement exactly once regardless of frame timing. The manager's own cursor is pinned to the crosshair, which is where hits are registered. The parent cursor is pulled back to the crosshair only once it drifts beyond a margin, so it never runs into the window edge and stops reporting movement.
 
-1. The synthesised per-frame `MouseMoveEvent` carries **no usable delta** (its "last position" equals its current position), so movement is measured in `Update()` as the parent input manager's drift from the crosshair.
-2. Recentring the **parent** input manager makes the framework's `MouseHandler` warp the OS cursor (`FeedbackMousePositionChange` with `isSelfFeedback: false`). This is what allows unbounded turning instead of the cursor hitting the window edge, where `UserInputManager` would clamp it.
+Camera control is gated on `UseParentInput`, which the drawable ruleset clears while paused and a replay handler clears during replays. While paused this leaves the cursor free to navigate the pause menu, and forgetting the last cursor position means the movement made over the menu is not applied as a jump on resume. Only the input manager hosting the playfield drives the camera; the ruleset creates a second input manager for the resume overlay, and that one has camera control disabled so overlay cursors stay free.
 
-`MouseMoveEvent` is swallowed in `Handle` so the base `PassThroughInputManager` never copies the parent's cursor position over the locked one.
-
-Smooth camera control relies on **relative (raw) mouse input** being enabled in osu!'s input settings. With raw input off, the OS cursor is confined and the recenter/warp cycle fights the window edge, which reads as choppy movement.
+Smooth camera control relies on **relative (raw) mouse input** being enabled in osu!'s input settings.
 
 Two deliberate deviations from osu!: the playfield's storyboard alignment shift is disabled (the crosshair must be at the true view centre), and the resume overlay is `DelayedResumeOverlay`, because the standard one requires clicking a specific position which is impossible with a locked cursor.
 
@@ -56,7 +55,7 @@ Two deliberate deviations from osu!: the playfield's storyboard alignment shift 
 
 ```bash
 dotnet build   # must be 0 errors, 0 warnings
-dotnet test    # 36 tests
+dotnet test    # 39 tests
 ```
 
 Tests cover the projection invariants (round-trips, span/FOV independence, clamping), the camera, and real gameplay through `PlayerTestScene`. The key end-to-end check is `TestSceneFPSosuAutoplay`: autoplay must build combo with **zero misses** while the camera rotates, which proves the projection preserved playability.

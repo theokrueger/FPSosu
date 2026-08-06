@@ -21,19 +21,20 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// </summary>
     /// <remarks>
     /// Buttons and key bindings are inherited unchanged, so clicking still hits whatever the crosshair covers. Only
-    /// positional input is reinterpreted, in two parts:
+    /// positional input is reinterpreted:
     /// <list type="number">
     /// <item><description>
-    /// Mouse movement events are consumed here as relative deltas and converted into camera rotation. The event is
-    /// then swallowed, so the base <see cref="PassThroughInputManager"/> never copies the parent's cursor position
-    /// into this manager and the local cursor stays at the centre where the crosshair is drawn.
+    /// Each frame, the movement of the parent input manager's cursor since the previous frame is converted into
+    /// camera rotation. Measuring frame-to-frame deltas (rather than recentering the cursor and reading its offset)
+    /// applies every movement exactly once regardless of frame timing.
     /// </description></item>
     /// <item><description>
-    /// The parent input manager is warped back to the centre of the playfield each frame. That keeps the OS cursor
-    /// away from the window edges, which is what allows the player to keep turning indefinitely instead of running
-    /// out of desk or having the position clamped by the window bounds.
+    /// This manager's own cursor is pinned to the crosshair, which is where hits are registered. The parent cursor is
+    /// pulled back to the crosshair only if it drifts beyond a margin, so it never runs into the window edge and
+    /// stops reporting movement.
     /// </description></item>
     /// </list>
+    /// While paused (or during a replay) camera control is inactive, leaving the cursor free for menus.
     /// </remarks>
     public partial class FPSosuInputManager : OsuInputManager
     {
@@ -74,10 +75,11 @@ namespace osu.Game.Rulesets.FPSosu.UI
         private InputManager? parentInputManager;
 
         /// <summary>
-        /// Whether camera control was active on the previous frame. Used to tell the first frame back from the
-        /// pause menu apart, so the movement made over the menu is not applied as camera rotation.
+        /// The parent input manager's cursor position on the previous frame. Used to turn the frame-to-frame mouse
+        /// movement into camera rotation. Cleared whenever camera control is inactive so the movement made over the
+        /// pause menu is not applied as a jump on resume.
         /// </summary>
-        private bool wasControlling;
+        private Vector2? lastParentPosition;
 
         public FPSosuInputManager(RulesetInfo ruleset)
             : base(ruleset)
@@ -143,40 +145,45 @@ namespace osu.Game.Rulesets.FPSosu.UI
             var parent = parentInputManager;
 
             // UseParentInput is only true during active gameplay: the drawable ruleset clears it while paused and a
-            // replay handler clears it during replays. Bailing out here leaves the cursor free for the pause menu.
+            // replay handler clears it during replays. Bailing out here leaves the cursor free for the pause menu, and
+            // forgetting the last position means the movement made over the menu is not applied on resume.
             if (parent == null || !AllowCameraControl || !UseParentInput)
             {
-                wasControlling = false;
+                lastParentPosition = null;
                 return;
             }
 
-            // Lock to the centre of the playfield, which is where the crosshair sits. That is not the same as the
-            // centre of this manager, because the playfield is letterboxed and shifted within it.
-            Vector2 target = LockPosition?.Invoke() ?? ToScreenSpace(DrawSize / 2);
-
-            if (wasControlling)
+            if (parent.CurrentState.Mouse.IsPositionValid)
             {
-                // However far the OS cursor has drifted from the centre since the last frame is this frame's turn.
-                if (parent.CurrentState.Mouse.IsPositionValid)
-                {
-                    var drift = parent.CurrentState.Mouse.Position - target;
-                    if (drift.LengthSquared > 1f)
-                        System.Diagnostics.Debug.WriteLine($"FPS drift={drift} target={target} parentPos={parent.CurrentState.Mouse.Position}");
-                    rotateBy(drift);
-                }
+                Vector2 position = parent.CurrentState.Mouse.Position;
+
+                // Rotate by however far the cursor moved since the last frame, rather than recentering it, so the
+                // movement is applied exactly once regardless of frame timing.
+                if (lastParentPosition is Vector2 last)
+                    rotateBy(position - last);
+
+                lastParentPosition = position;
             }
 
-            wasControlling = true;
-
-            // Warp the OS cursor back to the centre. On the first frame back from the pause menu this also discards
-            // the movement made over the menu, since no rotation was applied above. It is what lets the player keep
-            // turning without running into the edge of the window.
-            if (parent.CurrentState.Mouse.Position != target)
-                new MousePositionAbsoluteInput { Position = target }.Apply(parent.CurrentState, parent);
-
             // Hold this manager's own cursor at the crosshair, where hits are registered.
+            Vector2 target = LockPosition?.Invoke() ?? ToScreenSpace(DrawSize / 2);
+
             if (CurrentState.Mouse.Position != target)
                 new MousePositionAbsoluteInput { Position = target }.Apply(CurrentState, this);
+
+            // Keep the parent's cursor from running into the edge of the window, where it would stop reporting
+            // movement. Pull it back to the crosshair only once it drifts beyond a margin, so the frame-to-frame
+            // deltas above are left intact during normal play.
+            if (parent.CurrentState.Mouse.IsPositionValid)
+            {
+                float margin = Math.Min(parent.DrawSize.X, parent.DrawSize.Y) * 0.4f;
+
+                if (Vector2.Distance(parent.CurrentState.Mouse.Position, target) > margin)
+                {
+                    new MousePositionAbsoluteInput { Position = target }.Apply(parent.CurrentState, parent);
+                    lastParentPosition = target;
+                }
+            }
         }
     }
 }

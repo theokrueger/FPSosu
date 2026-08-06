@@ -47,11 +47,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             AddUntilStep("wait for objects", () => aliveObjects().Any());
 
             AddStep("move mouse right", () => moveMouseBy(new Vector2(80, 0)));
-            AddUntilStep("camera turned right", () =>
-            {
-                TestContext.Out.WriteLine($"yaw={camera.Yaw} allow={drawableRuleset.KeyBindingInputManager.AllowCameraControl} useParent={drawableRuleset.KeyBindingInputManager.UseParentInput} ownPos={playfield.ToLocalSpace(drawableRuleset.KeyBindingInputManager.CurrentState.Mouse.Position)} testMgrPos={playfield.ToLocalSpace(InputManager.CurrentState.Mouse.Position)}");
-                return camera.Yaw > 0.01f;
-            });
+            AddUntilStep("camera turned right", () => camera.Yaw > 0.01f);
 
             AddStep("move mouse left past centre", () => moveMouseBy(new Vector2(-200, 0)));
             AddUntilStep("camera turned left", () => camera.Yaw < -0.01f);

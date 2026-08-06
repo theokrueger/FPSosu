@@ -73,6 +73,24 @@ namespace osu.Game.Rulesets.FPSosu.UI
                     LabelText = "Show crosshair",
                     Current = config.GetBindable<bool>(FPSosuRulesetSetting.ShowCrosshair),
                 },
+                new SettingsSlider<float>
+                {
+                    LabelText = "Crosshair size",
+                    TooltipText = "How large the crosshair is drawn.",
+                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairSize),
+                    KeyboardStep = 0.1f,
+                },
+                new SettingsCheckbox
+                {
+                    LabelText = "Crosshair outline",
+                    TooltipText = "Draws a contrasting outline around the crosshair so it stays visible against bright objects.",
+                    Current = config.GetBindable<bool>(FPSosuRulesetSetting.CrosshairOutline),
+                },
+                new SettingsEnumDropdown<FPSosuCrosshairColour>
+                {
+                    LabelText = "Crosshair colour",
+                    Current = config.GetBindable<FPSosuCrosshairColour>(FPSosuRulesetSetting.CrosshairColour),
+                },
             };
         }
     }
