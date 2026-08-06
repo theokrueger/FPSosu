@@ -49,6 +49,20 @@ namespace osu.Game.Rulesets.FPSosu.UI
         private float lastBoundaryPitch = float.NaN;
         private bool boundaryProjectionDirty = true;
 
+        /// <summary>
+        /// The camera orientation on the previous frame, used to turn the frame's camera movement into spinner
+        /// rotation.
+        /// </summary>
+        private float lastSpinnerYaw;
+        private float lastSpinnerPitch;
+
+        /// <summary>
+        /// Degrees of spinner rotation earned per radian of camera turn. With the default overshoot the camera can
+        /// sweep roughly 190 degrees edge to edge, and this value makes one such sweep spin the disc about once, so
+        /// sweeping the camera back and forth completes spinners at a natural pace.
+        /// </summary>
+        private const float spinner_rotation_per_camera_radian = 100f;
+
         [BackgroundDependencyLoader]
         private void load(FPSosuConfigManager? config)
         {
@@ -107,6 +121,8 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             foreach (var entry in HitObjectContainer.AliveEntries)
                 project(entry.Value, yaw, pitch);
+
+            updateSpinners(yaw, pitch);
         }
 
         private void project(DrawableHitObject drawable, float yaw, float pitch)
@@ -124,6 +140,15 @@ namespace osu.Game.Rulesets.FPSosu.UI
                 return;
             }
 
+            // Spinners are spun in place at the centre of the view rather than aimed at, so keep them centred while
+            // the world turns around them. Their rotation is driven by camera movement in updateSpinners.
+            if (osuObject is DrawableSpinner)
+            {
+                osuObject.Alpha = 1;
+                osuObject.Position = FPSosuProjector.PLAYFIELD_CENTRE;
+                return;
+            }
+
             var world = projector.PlayfieldToWorld(osuObject.HitObject.StackedPosition);
 
             if (!projector.WorldToPlayfield(world, yaw, pitch, out Vector2 position, out float scale))
@@ -135,11 +160,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             osuObject.Alpha = 1;
             osuObject.Position = position;
-
-            // Spinners are full-playfield objects centred on the screen and are spun rather than aimed at, so
-            // rescaling them with perspective would only shrink the area the player has to work with.
-            if (osuObject is not DrawableSpinner)
-                osuObject.Scale = new Vector2(scale);
+            osuObject.Scale = new Vector2(scale);
         }
 
         /// <summary>
@@ -183,6 +204,49 @@ namespace osu.Game.Rulesets.FPSosu.UI
             slider.Position = headScreen;
             slider.Scale = new Vector2(headScale);
             slider.Rotation = 0;
+        }
+
+        /// <summary>
+        /// Turns this frame's camera movement into rotation for any live spinner.
+        /// </summary>
+        private void updateSpinners(float yaw, float pitch)
+        {
+            float yawDelta = yaw - lastSpinnerYaw;
+            float pitchDelta = pitch - lastSpinnerPitch;
+            lastSpinnerYaw = yaw;
+            lastSpinnerPitch = pitch;
+
+            // Spinning is driven by how much the camera turned this frame, in any direction.
+            float rotationDelta = MathF.Sqrt(yawDelta * yawDelta + pitchDelta * pitchDelta) * spinner_rotation_per_camera_radian;
+
+            if (rotationDelta <= 0)
+                return;
+
+            foreach (var entry in HitObjectContainer.AliveEntries)
+            {
+                if (entry.Value is DrawableSpinner spinner)
+                    spinSpinner(spinner, rotationDelta);
+            }
+        }
+
+        /// <summary>
+        /// Spins a spinner from camera movement.
+        /// </summary>
+        /// <remarks>
+        /// The cursor is pinned to the crosshair, so the standard "move the cursor in circles" action is not
+        /// possible. Rotating the camera takes its place. This mirrors how the Spun Out mod drives spinners, except
+        /// the rotation comes from camera movement instead of a fixed speed, and no button needs to be held.
+        /// </remarks>
+        private void spinSpinner(DrawableSpinner spinner, float rotationDelta)
+        {
+            // Stop the spinner listening for (pinned) cursor input and take over its tracking.
+            spinner.HandleUserInput = false;
+
+            var tracker = spinner.RotationTracker;
+            tracker.Tracking = tracker.IsSpinnableTime && !spinner.Result.HasResult;
+
+            if (tracker.Tracking)
+                tracker.AddRotation(rotationDelta);
         }
 
         /// <summary>
