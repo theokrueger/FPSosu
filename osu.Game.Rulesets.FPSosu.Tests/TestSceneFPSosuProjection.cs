@@ -151,6 +151,24 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         }
 
         /// <summary>
+        /// A smaller playfield span packs objects closer together, so their size shrinks in proportion to keep them
+        /// reading the same relative to the gaps between them. The default span keeps objects at natural size.
+        /// </summary>
+        [TestCaseSource(nameof(modes))]
+        public void TestObjectScaleTracksPlayfieldSpan(FPSosuProjectionMode mode)
+        {
+            var centre = FPSosuProjector.PLAYFIELD_CENTRE;
+
+            float scaleAt50 = restingScale(new FPSosuProjector(mode, 90, 50), centre);
+            float scaleAt100 = restingScale(new FPSosuProjector(mode, 90, 100), centre);
+            float scaleAt150 = restingScale(new FPSosuProjector(mode, 90, 150), centre);
+
+            Assert.That(scaleAt100, Is.EqualTo(1).Within(0.001f), "natural size at the default span");
+            Assert.That(scaleAt50, Is.EqualTo(0.5f).Within(0.001f), "half the span gives half the size");
+            Assert.That(scaleAt150, Is.EqualTo(1.5f).Within(0.001f), "size is proportional to span");
+        }
+
+        /// <summary>
         /// The camera must not be able to rotate past the beatmap, otherwise objects could end up behind the player
         /// and become impossible to hit.
         /// </summary>

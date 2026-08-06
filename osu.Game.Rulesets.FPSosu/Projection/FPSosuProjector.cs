@@ -55,6 +55,12 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         private static readonly float default_focal_length = PLAYFIELD_CENTRE.X;
 
         /// <summary>
+        /// The playfield span, in degrees, at which objects keep their natural osu! size. Matches the default
+        /// PlayfieldSpan setting, so the default view is unchanged and only other spans rescale objects.
+        /// </summary>
+        private const float reference_span = 100f;
+
+        /// <summary>
         /// Points closer to the camera than this along the view axis are treated as not visible.
         /// A small positive epsilon keeps the perspective divide well conditioned.
         /// </summary>
@@ -84,6 +90,12 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         private readonly float distance;
 
         /// <summary>
+        /// Multiplier applied to object size so that circles shrink as the playfield span shrinks, keeping their
+        /// size proportional to the spacing between objects.
+        /// </summary>
+        private readonly float spanObjectScale;
+
+        /// <summary>
         /// Creates a projector.
         /// </summary>
         /// <param name="mode">How the playfield is embedded into the world.</param>
@@ -101,6 +113,7 @@ namespace osu.Game.Rulesets.FPSosu.Projection
 
             focalLength = PLAYFIELD_CENTRE.X / MathF.Tan(float.DegreesToRadians(clampedFov) / 2);
             halfSpan = float.DegreesToRadians(clampedSpan) / 2;
+            spanObjectScale = clampedSpan / reference_span;
 
             if (mode == FPSosuProjectionMode.Dome)
             {
@@ -168,7 +181,8 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         /// <param name="playfieldPosition">The resulting position in osu! playfield coordinates.</param>
         /// <param name="scale">
         /// Perspective scale for an object at this point. This is 1 for an object at the centre of the resting view
-        /// at the default field of view, and grows or shrinks with zoom so objects read like world geometry.
+        /// at the default field of view and span. It grows or shrinks with zoom, and shrinks as the playfield span
+        /// shrinks, so objects read like world geometry at every setting.
         /// </param>
         /// <returns><c>true</c> if the point is in front of the camera, and therefore visible.</returns>
         public bool WorldToPlayfield(Vector3 world, float yaw, float pitch, out Vector2 playfieldPosition, out float scale)
@@ -201,8 +215,9 @@ namespace osu.Game.Rulesets.FPSosu.Projection
 
             // Objects further along the view axis shrink, and the whole scene magnifies with the focal length so
             // that zooming (changing the field of view) changes object size. Normalising by the default focal length
-            // keeps a centred object at its natural osu! size at the default field of view.
-            scale = distance * focalLength / (viewZ * default_focal_length);
+            // keeps a centred object at its natural osu! size at the default field of view, and the span factor
+            // shrinks objects in proportion to the playfield span so they stay proportional to their spacing.
+            scale = distance * focalLength / (viewZ * default_focal_length) * spanObjectScale;
             return true;
         }
 
