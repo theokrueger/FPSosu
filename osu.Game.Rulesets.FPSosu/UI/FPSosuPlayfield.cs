@@ -35,6 +35,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
         private readonly Bindable<FPSosuProjectionMode> projectionMode = new Bindable<FPSosuProjectionMode>(FPSosuProjectionMode.Dome);
         private readonly BindableFloat fieldOfView = new BindableFloat(90);
         private readonly BindableFloat playfieldSpan = new BindableFloat(100);
+        private readonly BindableFloat crosshairOvershoot = new BindableFloat(45);
 
         /// <summary>
         /// The current projection. Rebuilt only when a setting changes, so the per-frame path stays allocation free.
@@ -53,10 +54,12 @@ namespace osu.Game.Rulesets.FPSosu.UI
             config?.BindWith(FPSosuRulesetSetting.ProjectionMode, projectionMode);
             config?.BindWith(FPSosuRulesetSetting.FieldOfView, fieldOfView);
             config?.BindWith(FPSosuRulesetSetting.PlayfieldSpan, playfieldSpan);
+            config?.BindWith(FPSosuRulesetSetting.CrosshairOvershoot, crosshairOvershoot);
 
             projectionMode.BindValueChanged(_ => updateProjector());
             fieldOfView.BindValueChanged(_ => updateProjector());
             playfieldSpan.BindValueChanged(_ => updateProjector(), true);
+            crosshairOvershoot.BindValueChanged(_ => updateAngularLimit());
 
             // The flat playfield border and follow points are drawn in unprojected playfield space and would not
             // line up with the objects, so they are replaced by a boundary that follows the projection.
@@ -68,10 +71,16 @@ namespace osu.Game.Rulesets.FPSosu.UI
         {
             projector = new FPSosuProjector(projectionMode.Value, fieldOfView.Value, playfieldSpan.Value);
 
-            // Keep every object reachable under the new projection.
-            camera.AngularLimit = projector.AngularExtent;
+            // Keep every object reachable under the new projection, plus any configured overshoot past the edge.
+            updateAngularLimit();
 
             boundaryProjectionDirty = true;
+        }
+
+        private void updateAngularLimit()
+        {
+            float overshoot = float.DegreesToRadians(crosshairOvershoot.Value);
+            camera.AngularLimit = projector.AngularExtent + new Vector2(overshoot);
         }
 
         /// <summary>

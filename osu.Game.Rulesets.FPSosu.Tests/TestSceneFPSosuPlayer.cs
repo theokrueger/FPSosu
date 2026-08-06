@@ -126,19 +126,30 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         }
 
         /// <summary>
-        /// The camera must never rotate far enough to leave part of the beatmap unreachable.
+        /// The camera is clamped so the player cannot spin forever, but the clamp reaches past the edge of the
+        /// playfield by the configured overshoot, so the crosshair can move outside the beatmap while the whole
+        /// beatmap stays reachable.
         /// </summary>
         [Test]
-        public void TestCameraCannotTurnPastBeatmap()
+        public void TestCameraCanOvershootPlayfield()
         {
             AddUntilStep("wait for objects", () => aliveObjects().Any());
 
             AddStep("slam mouse far right and down", () => moveMouseBy(new Vector2(20000, 20000)));
 
-            AddUntilStep("camera clamped within playfield extent", () =>
+            AddUntilStep("camera turned past the playfield extent", () =>
             {
                 var extent = playfield.Projector.AngularExtent;
-                return camera.Yaw <= extent.X + 1e-4f && camera.Pitch >= -extent.Y - 1e-4f;
+                return camera.Yaw > extent.X + 1e-3f;
+            });
+
+            AddAssert("camera clamped to its angular limit", () =>
+                camera.Yaw <= camera.AngularLimit.X + 1e-4f && camera.Pitch >= -camera.AngularLimit.Y - 1e-4f);
+
+            AddAssert("angular limit still covers the beatmap", () =>
+            {
+                var extent = playfield.Projector.AngularExtent;
+                return camera.AngularLimit.X >= extent.X - 1e-4f && camera.AngularLimit.Y >= extent.Y - 1e-4f;
             });
         }
 

@@ -26,6 +26,7 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
             SetDefault(FPSosuRulesetSetting.FieldOfView, 90f, 30f, 150f, 1f);
             SetDefault(FPSosuRulesetSetting.PlayfieldSpan, 100f, 20f, 170f, 5f);
             SetDefault(FPSosuRulesetSetting.Sensitivity, 1f, 0.1f, 5f, 0.05f);
+            SetDefault(FPSosuRulesetSetting.CrosshairOvershoot, 45f, 0f, 120f, 5f);
             SetDefault(FPSosuRulesetSetting.InvertPitch, false);
             SetDefault(FPSosuRulesetSetting.ShowCrosshair, true);
         }
@@ -58,6 +59,12 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
         /// Whether moving the mouse down should look up, as in inverted flight controls.
         /// </summary>
         InvertPitch,
+
+        /// <summary>
+        /// How far in degrees the crosshair may move past the edge of the playfield, letting the player look
+        /// outside the beatmap. Zero keeps the crosshair locked to the playfield.
+        /// </summary>
+        CrosshairOvershoot,
 
         /// <summary>
         /// Whether the centred crosshair is drawn.

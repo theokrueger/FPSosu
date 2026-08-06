@@ -56,6 +56,13 @@ namespace osu.Game.Rulesets.FPSosu.UI
                     Current = config.GetBindable<float>(FPSosuRulesetSetting.Sensitivity),
                     KeyboardStep = 0.05f,
                 },
+                new SettingsSlider<float>
+                {
+                    LabelText = "Crosshair overshoot",
+                    TooltipText = "How far past the edge of the playfield the crosshair can move, in degrees. Set to zero to keep it locked to the beatmap.",
+                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairOvershoot),
+                    KeyboardStep = 5,
+                },
                 new SettingsCheckbox
                 {
                     LabelText = "Invert vertical look",
