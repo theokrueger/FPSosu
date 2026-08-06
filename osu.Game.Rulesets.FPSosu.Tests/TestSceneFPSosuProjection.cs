@@ -127,6 +127,30 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         }
 
         /// <summary>
+        /// Zooming in (a lower field of view) must enlarge objects and zooming out must shrink them, with the
+        /// default field of view keeping a centred resting object at its natural size.
+        /// </summary>
+        [TestCaseSource(nameof(modes))]
+        public void TestObjectScaleTracksFieldOfView(FPSosuProjectionMode mode)
+        {
+            var centre = FPSosuProjector.PLAYFIELD_CENTRE;
+
+            float scaleAt60 = restingScale(new FPSosuProjector(mode, 60, 100), centre);
+            float scaleAt90 = restingScale(new FPSosuProjector(mode, 90, 100), centre);
+            float scaleAt120 = restingScale(new FPSosuProjector(mode, 120, 100), centre);
+
+            Assert.That(scaleAt90, Is.EqualTo(1).Within(0.001f), "natural size at the default field of view");
+            Assert.That(scaleAt60, Is.GreaterThan(scaleAt90), "zooming in enlarges objects");
+            Assert.That(scaleAt120, Is.LessThan(scaleAt90), "zooming out shrinks objects");
+        }
+
+        private static float restingScale(FPSosuProjector projector, Vector2 target)
+        {
+            Assert.That(projector.WorldToPlayfield(projector.PlayfieldToWorld(target), 0, 0, out _, out float scale), Is.True);
+            return scale;
+        }
+
+        /// <summary>
         /// The camera must not be able to rotate past the beatmap, otherwise objects could end up behind the player
         /// and become impossible to hit.
         /// </summary>

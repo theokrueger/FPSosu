@@ -18,9 +18,9 @@ FPSosu is a ruleset for **osu! lazer** that turns standard osu! into a **3D firs
 | `Projection/FPSosuProjector.cs` | Pure projection math: playfield ↔ world ↔ screen, plus the camera-angle inverse. No framework dependencies, fully unit tested |
 | `Projection/FPSosuProjectionMode.cs` | `Dome` (playfield wrapped on a sphere) or `Plane` (flat rectangle in space) |
 | `Projection/FPSosuCamera.cs` | Camera yaw/pitch, clamped so the beatmap can never end up behind the player |
-| `UI/FPSosuPlayfield.cs` | Projects every alive hit object each frame |
-| `UI/FPSosuInputManager.cs` | Converts mouse movement into camera rotation and pins the cursor to the crosshair |
+| `UI/FPSosuPlayfield.cs` | Projects every alive hit object each frame and drives the playfield boundary |
 | `UI/FPSosuCrosshairContainer.cs` | The centred crosshair which replaces the osu! cursor |
+| `UI/FPSosuPlayfieldBoundary.cs` | Draws the edge of the playfield as it sits in the world, so the beatmap has a visible frame of reference |
 | `UI/DrawableFPSosuRuleset.cs` | Wires playfield, input manager, camera, replays and settings together |
 | `UI/FPSosuSettingsSubsection.cs` | Exposes the projection and camera settings |
 | `Configuration/` | `FPSosuRulesetConfigManager` (derives from `OsuRulesetConfigManager`) owning a nested `FPSosuConfigManager` for FPS-specific settings |
@@ -30,7 +30,9 @@ FPSosu is a ruleset for **osu! lazer** that turns standard osu! into a **3D firs
 
 Two settings shape the projection, and they are deliberately **independent**:
 
-- **Field of view** is zoom. It sets the focal length, controlling how large everything appears.
+- **Field of view** is zoom. It sets the focal length, controlling how large everything appears. Object scale is
+  proportional to the focal length, so zooming in enlarges notes and zooming out shrinks them; at the default field
+  of view a centred resting note keeps its natural osu! size.
 - **Playfield span** is the angular width of the beatmap in the world, controlling how far the player must physically turn to cross it. This is the aim-training workload.
 
 `PlayfieldToWorld` places a playfield position in the world; `WorldToPlayfield` projects it back through the camera; `PlayfieldToCameraAngles` and `CameraAnglesToPlayfield` are exact inverses of each other (verified to ~1e-14) and are what let autoplay and replays aim by rotation.
@@ -46,13 +48,15 @@ Camera control depends on two framework behaviours:
 
 `MouseMoveEvent` is swallowed in `Handle` so the base `PassThroughInputManager` never copies the parent's cursor position over the locked one.
 
+Smooth camera control relies on **relative (raw) mouse input** being enabled in osu!'s input settings. With raw input off, the OS cursor is confined and the recenter/warp cycle fights the window edge, which reads as choppy movement.
+
 Two deliberate deviations from osu!: the playfield's storyboard alignment shift is disabled (the crosshair must be at the true view centre), and the resume overlay is `DelayedResumeOverlay`, because the standard one requires clicking a specific position which is impossible with a locked cursor.
 
 ## Building & Testing
 
 ```bash
 dotnet build   # must be 0 errors, 0 warnings
-dotnet test    # 34 tests
+dotnet test    # 36 tests
 ```
 
 Tests cover the projection invariants (round-trips, span/FOV independence, clamping), the camera, and real gameplay through `PlayerTestScene`. The key end-to-end check is `TestSceneFPSosuAutoplay`: autoplay must build combo with **zero misses** while the camera rotates, which proves the projection preserved playability.

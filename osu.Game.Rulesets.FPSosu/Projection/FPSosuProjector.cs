@@ -48,6 +48,13 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         private const float dome_radius = 512f;
 
         /// <summary>
+        /// The focal length at the default field of view of 90 degrees. As tan(45) is 1 this equals the playfield
+        /// half-width. Object scale is normalised against it so that moving away from the default field of view
+        /// magnifies or shrinks objects, while the default view keeps them at their natural osu! size.
+        /// </summary>
+        private static readonly float default_focal_length = PLAYFIELD_CENTRE.X;
+
+        /// <summary>
         /// Points closer to the camera than this along the view axis are treated as not visible.
         /// A small positive epsilon keeps the perspective divide well conditioned.
         /// </summary>
@@ -160,8 +167,8 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         /// <param name="pitch">Camera pitch in radians. Positive looks up.</param>
         /// <param name="playfieldPosition">The resulting position in osu! playfield coordinates.</param>
         /// <param name="scale">
-        /// Perspective scale for an object at this point. This is 1 for an object at the centre of the resting
-        /// view, so gameplay reads exactly like standard osu! while the camera is centred.
+        /// Perspective scale for an object at this point. This is 1 for an object at the centre of the resting view
+        /// at the default field of view, and grows or shrinks with zoom so objects read like world geometry.
         /// </param>
         /// <returns><c>true</c> if the point is in front of the camera, and therefore visible.</returns>
         public bool WorldToPlayfield(Vector3 world, float yaw, float pitch, out Vector2 playfieldPosition, out float scale)
@@ -192,9 +199,10 @@ namespace osu.Game.Rulesets.FPSosu.Projection
                 PLAYFIELD_CENTRE.X + viewX * perspective,
                 PLAYFIELD_CENTRE.Y - viewY * perspective);
 
-            // Objects further along the view axis shrink. Normalising by the resting distance keeps a centred
-            // object at its natural osu! size.
-            scale = distance / viewZ;
+            // Objects further along the view axis shrink, and the whole scene magnifies with the focal length so
+            // that zooming (changing the field of view) changes object size. Normalising by the default focal length
+            // keeps a centred object at its natural osu! size at the default field of view.
+            scale = distance * focalLength / (viewZ * default_focal_length);
             return true;
         }
 

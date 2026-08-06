@@ -41,6 +41,12 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// </summary>
         private FPSosuProjector projector;
 
+        private FPSosuPlayfieldBoundary boundary = null!;
+
+        private float lastBoundaryYaw = float.NaN;
+        private float lastBoundaryPitch = float.NaN;
+        private bool boundaryProjectionDirty = true;
+
         [BackgroundDependencyLoader]
         private void load(FPSosuConfigManager? config)
         {
@@ -52,9 +58,10 @@ namespace osu.Game.Rulesets.FPSosu.UI
             fieldOfView.BindValueChanged(_ => updateProjector());
             playfieldSpan.BindValueChanged(_ => updateProjector(), true);
 
-            // The playfield border and follow points are drawn in flat playfield space and would not line up with
-            // the projected objects, so they are not shown.
+            // The flat playfield border and follow points are drawn in unprojected playfield space and would not
+            // line up with the objects, so they are replaced by a boundary that follows the projection.
             FollowPoints.Hide();
+            AddInternal(boundary = new FPSosuPlayfieldBoundary());
         }
 
         private void updateProjector()
@@ -63,6 +70,8 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             // Keep every object reachable under the new projection.
             camera.AngularLimit = projector.AngularExtent;
+
+            boundaryProjectionDirty = true;
         }
 
         /// <summary>
@@ -76,6 +85,15 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             float yaw = camera.Yaw;
             float pitch = camera.Pitch;
+
+            if (boundaryProjectionDirty || yaw != lastBoundaryYaw || pitch != lastBoundaryPitch)
+            {
+                boundary.Refresh(projector, yaw, pitch);
+
+                lastBoundaryYaw = yaw;
+                lastBoundaryPitch = pitch;
+                boundaryProjectionDirty = false;
+            }
 
             foreach (var entry in HitObjectContainer.AliveEntries)
                 project(entry.Value, yaw, pitch);
