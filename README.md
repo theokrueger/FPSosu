@@ -3,11 +3,13 @@ osu! lazer as an aim trainer. much like the FPoSu mod for [McOsu](https://store.
 
 **!!!WARNING!!! this project is pure vibeslop. sorry.**
 
-The standard osu! playfield is embedded into a 3D world and projected back through a first-person camera. The mouse rotates the camera while the crosshair stays pinned to the centre of the screen; hit detection, scoring, mods and difficulty are inherited untouched from standard osu!.
+The standard osu! playfield is embedded in 3D and projected back onto the 2D playfield.
+The mouse rotates the camera while the crosshair stays pinned to the centre of the screen; hit detection, scoring, mods and difficulty are inherited untouched from standard osu!.
+
+# In-game config
 
 - **Projections**: *Dome* wraps the playfield onto a sphere centred on the camera (equal angular cost everywhere); *Plane* floats it flat in front of you (edges cost more, like a monitor target).
-- **Controls**: mouse = look, `Z` / `X` = osu! buttons. Spinners are spun by swinging the camera back and forth.
-- Judgement popups stay pinned to their note on the board and move with the world as you turn.
+- **Controls**: mouse = look, `Z` / `X` = osu! buttons (rebindable). Spinners are spun by swinging the camera back and forth.
 
 # Building
 Requires the .NET 8 SDK.
@@ -32,5 +34,10 @@ Under *Options → Gameplay → FPSosu*:
 # Mods
 Standard mods mostly work (HD, HR, DT, FL, Relax, ...). Mods that fight the projection are hidden from the mod list: autoplay, cinema, bubbles, bloom, barrel roll, deflate, grow, spin-in, transform, wiggle, depth, repel, magnetised and no scope.
 
-# Releases
+# Development
+
+## Contributing
+Since this codebase is AI slop, contribute tokens of your own to improve it.
+
+## Releases
 Pushing a `v*` tag runs the GitHub Actions workflow: it builds the Release configuration, runs the tests and attaches the ruleset DLL to a GitHub release for that tag.
