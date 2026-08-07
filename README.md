@@ -1,43 +1,76 @@
 # FPSosu
-osu! lazer as an aim trainer. much like the FPoSu mod for [McOsu](https://store.steampowered.com/app/607260/McOsu/), but in real osu!.
+[Preview on YouTube](https://www.youtube.com/watch?v=WZkNcHu351w)
 
-**!!!WARNING!!! this project is pure vibeslop. sorry.**
 
+**FPSosu** is a custom ruleset for [osu!](https://osu.ppy.sh) (lazer) that turns the standard game mode into a first‑person 3D aim trainer, a la *FPoSu* mode for [McOsu](https://store.steampowered.com/app/607260/McOsu/).
 The standard osu! playfield is embedded in 3D and projected back onto the 2D playfield.
 The mouse rotates the camera while the crosshair stays pinned to the centre of the screen; hit detection, scoring, mods and difficulty are inherited untouched from standard osu!.
 
-# In-game config
-
-- **Projections**: *Dome* wraps the playfield onto a sphere centred on the camera (equal angular cost everywhere); *Plane* floats it flat in front of you (edges cost more, like a monitor target).
-- **Controls**: mouse = look, `Z` / `X` = osu! buttons (rebindable). Spinners are spun by swinging the camera back and forth.
-
-# Building
-Requires the .NET 8 SDK.
-
-```bash
-dotnet build   # ruleset + tests
-dotnet test    # headless gameplay tests
-dotnet run --project osu.Game.Rulesets.FPSosu.Tests   # visual test browser
-```
+**ONLY MOUSE INPUT IS SUPPORTED!**
 
 # Installation
-Copy `osu.Game.Rulesets.FPSosu/bin/Release/net8.0/osu.Game.Rulesets.FPSosu.dll` into the `rulesets` folder next to your osu! (lazer) executable, or grab the DLL from the [releases](../../releases) page. The ruleset then shows up as "FPSosu" in the song select.
+- Download [here](https://github.com/theokrueger/FPSosu/releases/latest/download/osu.Game.Rulesets.FPSosu.dll)
+- [Install Guide](https://rulesets.info/install/rulesets)
+- Select mode in top menu bar of osu!lazer
+- **Ensure 'Show Converts' is enabled in map listing**
+- Configure options in `Rulesets -> FPSosu`
+- Configure controls in `Input -> Configure`
 
-# Settings
-Under *Options → Gameplay → FPSosu*:
+# Recommendations
+- Make liberal usage of mods, especially Difficulty Adjust and setting AR and CS
+- Don't be afraid of using Spun out and/or Relax
+- Adjust playfield span frequently
 
-- **Projection / field of view / playfield span** – how the beatmap sits in the world and how far you must turn to cross it.
-- **Sensitivity** – camera turn rate, plus a **converter** from CS2/CS:GO, Valorant, Rainbow Six Siege, Apex, Overwatch 2 and CoD: enter your sensitivity there, apply, and the turn rate matches (DPI is only used to report the cm/360°). osu!'s own cursor sensitivity is normalised out.
-- **Crosshair overshoot** – how far past the beatmap edge you can look.
-- **Crosshair** – gap, line length, line thickness, opacity, centre dot, outline, colour.
+# Configuration
+## Projections
 
-# Mods
-Standard mods mostly work (HD, HR, DT, FL, Relax, ...). Mods that fight the projection are hidden from the mod list: autoplay, cinema, bubbles, bloom, barrel roll, deflate, grow, spin-in, transform, wiggle, depth, repel, magnetised and no scope.
+| Mode | Behaviour |
+|---|---|
+| **Dome** (default) | The playfield is wrapped onto the inside of a sphere centred on the camera (X → yaw, Y → pitch). A flick costs the same angular distance anywhere on the board. |
+| **Plane** | The playfield floats as a flat rectangle in front of the camera. Edge targets cost progressively more angular movement, like a monitor target in a traditional aim trainer. |
 
-# Development
+## Settings
 
-## Contributing
-Since this codebase is AI slop, contribute tokens of your own to improve it.
+All settings live under *Options → Rulesets → FPSosu* and apply live.
 
-## Releases
-Pushing a `v*` tag runs the GitHub Actions workflow: it builds the Release configuration, runs the tests and attaches the ruleset DLL to a GitHub release for that tag.
+| Setting | Range | Default | Effect |
+|---|---|---|---|
+| Projection | Dome / Plane | Dome | How the playfield sits in the world |
+| Field of view | 30–150° | 90° | Zoom; lower magnifies the board |
+| Playfield span | 20–170° | 100° | Angular width of the beatmap; how far you turn to cross it |
+| Sensitivity | 0.05–10 | 1 | Multiplier on camera turn rate |
+| Crosshair overshoot | 0–120° | 45° | How far past the board edge you can look |
+| Invert vertical look | on/off | off | Flips pitch |
+| Show crosshair | on/off | on | Hides the crosshair |
+| Crosshair gap | 0–20 | 3 | Empty space between centre and lines |
+| Crosshair line length | 2–30 | 10 | Length of each line |
+| Crosshair line thickness | 0.5–10 | 2 | Thickness of lines and centre dot |
+| Crosshair opacity | 0–1 | 1 | Transparency |
+| Crosshair centre dot | on/off | on | Dot at the exact hit point |
+| Crosshair outline | on/off | on | Contrasting outline for visibility |
+| Crosshair colour | White/Red/Green/Blue | White | Tint of the crosshair |
+
+## Sensitivity converter
+
+The settings screen includes a converter that matches your turn rate from other FPS titles. Enter the source game and sensitivity, and the equivalent FPSosu sensitivity is computed and applied.
+
+| Supported Conversions: |
+|---|
+| Counter‑Strike 2 / CS:GO |
+| Valorant |
+| Rainbow Six Siege |
+| Apex Legends |
+| Overwatch 2 |
+| Call of Duty (MW/Warzone) |
+
+## Mods
+
+Because FPSosu extends the standard ruleset, most osu! mods work as usual (Hidden, Hard Rock, DoubleTime/Nightcore, Flashlight, Relax, Easy, No Fail, …). Mods that conflict with the 3D projection are hidden from the mod list:
+
+- **Broken under projection:** Autoplay, Autopilot, Cinema, Bubbles, Bloom, Barrel Roll, Deflate, Grow, Spin‑In, Transform, Wiggle
+- **No effect under projection:** Depth, Repel, Magnetised, No Scope
+
+## Reporting Bugs
+[Open a new issue on GitHub](https://github.com/theokrueger/FPSosu/issues/new/choose)
+
+Feel free to contribute as well.
