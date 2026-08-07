@@ -225,7 +225,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
             foreach (var entry in HitObjectContainer.AliveEntries)
             {
                 if (entry.Value is DrawableSpinner spinner)
-                    spinSpinner(spinner, rotationDelta);
+                    spinSpinner(spinner, rotationDelta*3);
             }
         }
 

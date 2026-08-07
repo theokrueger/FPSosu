@@ -10,7 +10,6 @@ using osu.Framework.Input.StateChanges;
 using osu.Game.Rulesets.FPSosu.Configuration;
 using osu.Game.Rulesets.FPSosu.Projection;
 using osu.Game.Rulesets.Osu;
-using osu.Game.Rulesets.Osu.UI;
 using osuTK;
 
 namespace osu.Game.Rulesets.FPSosu.UI
@@ -38,14 +37,6 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// </remarks>
     public partial class FPSosuInputManager : OsuInputManager
     {
-        /// <summary>
-        /// Radians of camera rotation per playfield unit of mouse movement at a sensitivity of 1.
-        /// </summary>
-        /// <remarks>
-        /// Sized so that, by default, dragging across the playfield turns the camera by roughly the angle the
-        /// playfield spans, which keeps the feel close to standard osu! before the player tunes sensitivity.
-        /// </remarks>
-        private const float radians_per_unit = 0.004f;
 
         [Resolved]
         private FPSosuCamera camera { get; set; } = null!;
@@ -120,23 +111,21 @@ namespace osu.Game.Rulesets.FPSosu.UI
             if (screenSpaceDelta == Vector2.Zero)
                 return;
 
-            // Express the movement in playfield units so sensitivity is independent of window size and resolution.
-            // Only the vector is being converted, so the origin is subtracted back out.
+            // Express the movement in this manager's local units, which are screen pixels of the ruleset area. With
+            // the osu! cursor sensitivity at its default of 1 one mouse count moves one pixel, so the turn rate is a
+            // physical constant independent of the window size - the property the sensitivity converter relies on.
             Vector2 local = ToLocalSpace(ToScreenSpace(Vector2.Zero) + screenSpaceDelta);
-            Vector2 delta = local * playfieldUnitsPerLocalUnit;
 
-            float scale = radians_per_unit * sensitivity.Value;
+            float scale = FPSosuSensitivityConverter.RADIANS_PER_PIXEL * sensitivity.Value;
 
             // Screen Y grows downwards, so moving the mouse up (negative Y) must raise the pitch.
-            float pitchDelta = -delta.Y * scale;
+            float pitchDelta = -local.Y * scale;
 
             if (invertPitch.Value)
                 pitchDelta = -pitchDelta;
 
-            camera.Rotate(delta.X * scale, pitchDelta);
+            camera.Rotate(local.X * scale, pitchDelta);
         }
-
-        private float playfieldUnitsPerLocalUnit => DrawSize.X > 0 ? OsuPlayfield.BASE_SIZE.X / DrawSize.X : 1;
 
         protected override void Update()
         {
