@@ -21,7 +21,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// The base <see cref="Framework.Graphics.Cursor.CursorContainer"/> moves its cursor to follow mouse movement.
     /// Here the cursor is anchored to the centre instead, because aiming is expressed by rotating the camera. The
     /// crosshair still marks exactly where hits are registered, since the input manager holds the real cursor there.
-    /// Its size, outline and colour can be tuned in the ruleset settings.
+    /// Its gap, line length, thickness, centre dot, opacity, outline and colour can be tuned in the ruleset settings.
     /// </remarks>
     public partial class FPSosuCrosshairContainer : GameplayCursorContainer
     {
@@ -55,26 +55,39 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
         private partial class Crosshair : CompositeDrawable
         {
-            private const float arm_length = 10;
-            private const float thickness = 2;
-            private const float gap = 3;
             private const float outline_width = 1;
+
+            private readonly Container pieces = new Container
+            {
+                Anchor = Anchor.Centre,
+                Origin = Anchor.Centre,
+                AutoSizeAxes = Axes.Both,
+            };
 
             private readonly List<Box> fillPieces = new List<Box>();
             private readonly List<Box> outlinePieces = new List<Box>();
 
-            private readonly BindableFloat crosshairSize = new BindableFloat(1);
             private readonly BindableBool crosshairOutline = new BindableBool(true);
             private readonly Bindable<FPSosuCrosshairColour> crosshairColour = new Bindable<FPSosuCrosshairColour>(FPSosuCrosshairColour.White);
+            private readonly BindableFloat crosshairGap = new BindableFloat(3);
+            private readonly BindableFloat crosshairLineLength = new BindableFloat(10);
+            private readonly BindableFloat crosshairThickness = new BindableFloat(2);
+            private readonly BindableBool crosshairCenterDot = new BindableBool(true);
+            private readonly BindableFloat crosshairOpacity = new BindableFloat(1);
 
             [BackgroundDependencyLoader]
             private void load(FPSosuConfigManager? config)
             {
-                config?.BindWith(FPSosuRulesetSetting.CrosshairSize, crosshairSize);
                 config?.BindWith(FPSosuRulesetSetting.CrosshairOutline, crosshairOutline);
                 config?.BindWith(FPSosuRulesetSetting.CrosshairColour, crosshairColour);
+                config?.BindWith(FPSosuRulesetSetting.CrosshairGap, crosshairGap);
+                config?.BindWith(FPSosuRulesetSetting.CrosshairLineLength, crosshairLineLength);
+                config?.BindWith(FPSosuRulesetSetting.CrosshairThickness, crosshairThickness);
+                config?.BindWith(FPSosuRulesetSetting.CrosshairCenterDot, crosshairCenterDot);
+                config?.BindWith(FPSosuRulesetSetting.CrosshairOpacity, crosshairOpacity);
 
                 AutoSizeAxes = Axes.Both;
+                AddInternal(pieces);
                 build();
             }
 
@@ -82,31 +95,51 @@ namespace osu.Game.Rulesets.FPSosu.UI
             {
                 base.LoadComplete();
 
-                crosshairSize.BindValueChanged(size => Scale = new Vector2(size.NewValue), true);
                 crosshairOutline.BindValueChanged(outline => updateOutline(outline.NewValue), true);
                 crosshairColour.BindValueChanged(_ => updateColour(), true);
+                crosshairGap.BindValueChanged(_ => rebuild());
+                crosshairLineLength.BindValueChanged(_ => rebuild());
+                crosshairThickness.BindValueChanged(_ => rebuild());
+                crosshairCenterDot.BindValueChanged(_ => rebuild());
+                crosshairOpacity.BindValueChanged(opacity => pieces.Alpha = opacity.NewValue, true);
             }
 
             private void build()
             {
+                float gap = crosshairGap.Value;
+                float armLength = crosshairLineLength.Value;
+                float thickness = crosshairThickness.Value;
+
                 var arms = new[]
                 {
-                    (offset: new Vector2(0, -(gap + arm_length / 2)), size: new Vector2(thickness, arm_length)),
-                    (offset: new Vector2(0, gap + arm_length / 2), size: new Vector2(thickness, arm_length)),
-                    (offset: new Vector2(-(gap + arm_length / 2), 0), size: new Vector2(arm_length, thickness)),
-                    (offset: new Vector2(gap + arm_length / 2, 0), size: new Vector2(arm_length, thickness)),
+                    (offset: new Vector2(0, -(gap + armLength / 2)), size: new Vector2(thickness, armLength)),
+                    (offset: new Vector2(0, gap + armLength / 2), size: new Vector2(thickness, armLength)),
+                    (offset: new Vector2(-(gap + armLength / 2), 0), size: new Vector2(armLength, thickness)),
+                    (offset: new Vector2(gap + armLength / 2, 0), size: new Vector2(armLength, thickness)),
                 };
 
                 // Draw every outline first so all of them sit behind every filled piece.
                 foreach (var arm in arms)
                     addPiece(arm.size + new Vector2(outline_width * 2), arm.offset, outlinePieces, Color4.Black);
 
-                addPiece(new Vector2(thickness + outline_width * 2), Vector2.Zero, outlinePieces, Color4.Black);
+                if (crosshairCenterDot.Value)
+                    addPiece(new Vector2(thickness + outline_width * 2), Vector2.Zero, outlinePieces, Color4.Black);
 
                 foreach (var arm in arms)
                     addPiece(arm.size, arm.offset, fillPieces, Color4.White);
 
-                addPiece(new Vector2(thickness), Vector2.Zero, fillPieces, Color4.White);
+                if (crosshairCenterDot.Value)
+                    addPiece(new Vector2(thickness), Vector2.Zero, fillPieces, Color4.White);
+            }
+
+            private void rebuild()
+            {
+                pieces.Clear();
+                fillPieces.Clear();
+                outlinePieces.Clear();
+                build();
+                updateOutline(crosshairOutline.Value);
+                updateColour();
             }
 
             private void addPiece(Vector2 size, Vector2 offset, List<Box> tracking, Color4 colour)
@@ -120,7 +153,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
                     Colour = colour,
                 };
 
-                AddInternal(piece);
+                pieces.Add(piece);
                 tracking.Add(piece);
             }
 

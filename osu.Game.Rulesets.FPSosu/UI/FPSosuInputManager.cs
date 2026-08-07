@@ -2,11 +2,14 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Input;
 using osu.Framework.Input.Events;
+using osu.Framework.Input.Handlers.Mouse;
 using osu.Framework.Input.StateChanges;
+using osu.Framework.Platform;
 using osu.Game.Rulesets.FPSosu.Configuration;
 using osu.Game.Rulesets.FPSosu.Projection;
 using osu.Game.Rulesets.Osu;
@@ -43,6 +46,16 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
         private readonly BindableFloat sensitivity = new BindableFloat(1);
         private readonly BindableBool invertPitch = new BindableBool();
+
+        [Resolved]
+        private GameHost host { get; set; } = null!;
+
+        /// <summary>
+        /// osu!'s cursor sensitivity and high-precision toggle, read live from the active mouse handler so their
+        /// effect can be normalised out of the camera rotation. Null when the host has no mouse handler (tests).
+        /// </summary>
+        private BindableNumber<double>? cursorSensitivity;
+        private Bindable<bool>? highPrecisionMouse;
 
         /// <summary>
         /// Whether mouse movement should rotate the camera and pin the cursor to the crosshair.
@@ -82,6 +95,14 @@ namespace osu.Game.Rulesets.FPSosu.UI
         {
             config?.BindWith(FPSosuRulesetSetting.Sensitivity, sensitivity);
             config?.BindWith(FPSosuRulesetSetting.InvertPitch, invertPitch);
+
+            var mouseHandler = host.AvailableInputHandlers.OfType<MouseHandler>().FirstOrDefault();
+
+            if (mouseHandler != null)
+            {
+                cursorSensitivity = mouseHandler.Sensitivity.GetBoundCopy();
+                highPrecisionMouse = mouseHandler.UseRelativeMode.GetBoundCopy();
+            }
         }
 
         protected override void LoadComplete()
@@ -111,12 +132,13 @@ namespace osu.Game.Rulesets.FPSosu.UI
             if (screenSpaceDelta == Vector2.Zero)
                 return;
 
-            // Express the movement in this manager's local units, which are screen pixels of the ruleset area. With
-            // the osu! cursor sensitivity at its default of 1 one mouse count moves one pixel, so the turn rate is a
-            // physical constant independent of the window size - the property the sensitivity converter relies on.
+            // Express the movement in this manager's local units, which are screen pixels of the ruleset area. One
+            // mouse count moves one pixel, so the turn rate is a physical constant independent of the window size -
+            // the property the sensitivity converter relies on. osu!'s own cursor sensitivity is divided back out so
+            // it never stacks with the FPSosu sensitivity.
             Vector2 local = ToLocalSpace(ToScreenSpace(Vector2.Zero) + screenSpaceDelta);
 
-            float scale = FPSosuSensitivityConverter.RADIANS_PER_PIXEL * sensitivity.Value;
+            float scale = FPSosuSensitivityConverter.EffectiveRadiansPerPixel(cursorSensitivity?.Value ?? 1, highPrecisionMouse?.Value ?? false) * sensitivity.Value;
 
             // Screen Y grows downwards, so moving the mouse up (negative Y) must raise the pitch.
             float pitchDelta = -local.Y * scale;

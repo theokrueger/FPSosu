@@ -48,5 +48,24 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             // A CS2 player at sens 1 on 800 DPI turns 360 degrees over ~52 cm.
             Assert.That(FPSosuSensitivityGame.CounterStrike2.GetCmPer360(1.0f, 800), Is.EqualTo(51.9).Within(0.2));
         }
+
+        [Test]
+        public void TestCursorSensitivityIsNormalisedInHighPrecisionMode()
+        {
+            // In high-precision mode the framework pre-multiplies counts by osu!'s cursor sensitivity, so it must be
+            // divided back out to keep the turn rate constant per count.
+            Assert.That(FPSosuSensitivityConverter.EffectiveRadiansPerPixel(2.0, true),
+                        Is.EqualTo(FPSosuSensitivityConverter.RADIANS_PER_PIXEL / 2).Within(1e-9));
+            Assert.That(FPSosuSensitivityConverter.EffectiveRadiansPerPixel(0.5, true),
+                        Is.EqualTo(FPSosuSensitivityConverter.RADIANS_PER_PIXEL * 2).Within(1e-9));
+
+            // Without high-precision mode the OS scales the pointer; the value must be left alone.
+            Assert.That(FPSosuSensitivityConverter.EffectiveRadiansPerPixel(2.0, false),
+                        Is.EqualTo(FPSosuSensitivityConverter.RADIANS_PER_PIXEL).Within(1e-9));
+
+            // A degenerate sensitivity must not divide by zero.
+            Assert.That(FPSosuSensitivityConverter.EffectiveRadiansPerPixel(0, true),
+                        Is.EqualTo(FPSosuSensitivityConverter.RADIANS_PER_PIXEL).Within(1e-9));
+        }
     }
 }

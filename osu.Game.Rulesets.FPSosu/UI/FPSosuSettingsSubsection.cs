@@ -115,10 +115,37 @@ namespace osu.Game.Rulesets.FPSosu.UI
                 },
                 new SettingsSlider<float>
                 {
-                    LabelText = "Crosshair size",
-                    TooltipText = "How large the crosshair is drawn.",
-                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairSize),
+                    LabelText = "Crosshair gap",
+                    TooltipText = "The empty space between the centre and the crosshair lines.",
+                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairGap),
                     KeyboardStep = 0.1f,
+                },
+                new SettingsSlider<float>
+                {
+                    LabelText = "Crosshair line length",
+                    TooltipText = "How long each crosshair line is.",
+                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairLineLength),
+                    KeyboardStep = 0.1f,
+                },
+                new SettingsSlider<float>
+                {
+                    LabelText = "Crosshair line thickness",
+                    TooltipText = "How thick the crosshair lines and centre dot are.",
+                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairThickness),
+                    KeyboardStep = 0.1f,
+                },
+                new SettingsSlider<float>
+                {
+                    LabelText = "Crosshair opacity",
+                    TooltipText = "How transparent the crosshair is. Lower values let the playfield show through.",
+                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairOpacity),
+                    KeyboardStep = 0.01f,
+                },
+                new SettingsCheckbox
+                {
+                    LabelText = "Crosshair centre dot",
+                    TooltipText = "Draws a dot at the exact point hits are registered.",
+                    Current = config.GetBindable<bool>(FPSosuRulesetSetting.CrosshairCenterDot),
                 },
                 new SettingsCheckbox
                 {

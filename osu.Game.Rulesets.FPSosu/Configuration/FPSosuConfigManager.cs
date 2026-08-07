@@ -29,7 +29,11 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
             SetDefault(FPSosuRulesetSetting.CrosshairOvershoot, 45f, 0f, 120f, 5f);
             SetDefault(FPSosuRulesetSetting.InvertPitch, false);
             SetDefault(FPSosuRulesetSetting.ShowCrosshair, true);
-            SetDefault(FPSosuRulesetSetting.CrosshairSize, 1f, 0.5f, 3f, 0.1f);
+            SetDefault(FPSosuRulesetSetting.CrosshairGap, 3f, 0f, 20f, 0.1f);
+            SetDefault(FPSosuRulesetSetting.CrosshairLineLength, 10f, 2f, 30f, 0.1f);
+            SetDefault(FPSosuRulesetSetting.CrosshairThickness, 2f, 0.5f, 10f, 0.1f);
+            SetDefault(FPSosuRulesetSetting.CrosshairOpacity, 1f, 0f, 1f, 0.01f);
+            SetDefault(FPSosuRulesetSetting.CrosshairCenterDot, true);
             SetDefault(FPSosuRulesetSetting.CrosshairOutline, true);
             SetDefault(FPSosuRulesetSetting.CrosshairColour, FPSosuCrosshairColour.White);
         }
@@ -75,9 +79,14 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
         ShowCrosshair,
 
         /// <summary>
-        /// Scale multiplier for the crosshair.
+        /// The thickness of the crosshair lines and centre dot.
         /// </summary>
-        CrosshairSize,
+        CrosshairThickness,
+
+        /// <summary>
+        /// The opacity of the crosshair, from fully transparent to fully opaque.
+        /// </summary>
+        CrosshairOpacity,
 
         /// <summary>
         /// Whether a contrasting outline is drawn around the crosshair for visibility.
@@ -88,6 +97,21 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
         /// The colour of the crosshair.
         /// </summary>
         CrosshairColour,
+
+        /// <summary>
+        /// The empty space between the centre of the crosshair and its lines.
+        /// </summary>
+        CrosshairGap,
+
+        /// <summary>
+        /// The length of each crosshair line.
+        /// </summary>
+        CrosshairLineLength,
+
+        /// <summary>
+        /// Whether a dot is drawn at the centre of the crosshair.
+        /// </summary>
+        CrosshairCenterDot,
     }
 
     /// <summary>

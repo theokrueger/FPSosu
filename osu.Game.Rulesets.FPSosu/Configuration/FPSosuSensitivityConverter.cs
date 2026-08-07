@@ -11,8 +11,9 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
     /// </summary>
     /// <remarks>
     /// Every game in <see cref="FPSosuSensitivityGame"/> defines its turn rate as a fixed yaw - the degrees of camera
-    /// rotation per mouse count at a sensitivity of 1. FPSosu does the same: with the osu! cursor sensitivity at its
-    /// default of 1, one mouse count moves one screen pixel, so <see cref="RADIANS_PER_PIXEL"/> is FPSosu's yaw.
+    /// rotation per mouse count at a sensitivity of 1. FPSosu does the same: one mouse count moves one screen pixel
+    /// (osu!'s own cursor sensitivity is normalised out by the input manager), so <see cref="RADIANS_PER_PIXEL"/> is
+    /// FPSosu's yaw.
     /// Matching two sensitivities then only needs the ratio of the yaws; the mouse DPI cancels because the same mouse
     /// is used on both sides. DPI is only needed to report the physical cm/360° a matched sensitivity corresponds to.
     /// </remarks>
@@ -28,6 +29,18 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
         /// FPSosu's yaw: degrees of camera rotation per mouse count at a sensitivity of 1.
         /// </summary>
         public static float FpsosuYawDegrees => RADIANS_PER_PIXEL * 180 / MathF.PI;
+
+        /// <summary>
+        /// The radians of camera rotation per pixel of mouse movement at a sensitivity of 1, after normalising out
+        /// osu!'s cursor sensitivity.
+        /// </summary>
+        /// <remarks>
+        /// With high-precision (relative) mouse mode enabled the framework pre-multiplies raw mouse counts by osu!'s
+        /// cursor sensitivity before they reach the ruleset, so the factor is divided back out to keep the turn rate
+        /// constant per count. Without it the OS pointer scaling is in effect and cannot be normalised away.
+        /// </remarks>
+        public static float EffectiveRadiansPerPixel(double cursorSensitivity, bool highPrecisionMouse)
+            => highPrecisionMouse && cursorSensitivity > 0 ? RADIANS_PER_PIXEL / (float)cursorSensitivity : RADIANS_PER_PIXEL;
 
         /// <summary>
         /// The yaw of the given game, in degrees of camera rotation per mouse count at a sensitivity of 1.
