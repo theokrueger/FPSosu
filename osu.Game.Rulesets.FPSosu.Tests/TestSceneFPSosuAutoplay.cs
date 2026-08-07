@@ -1,9 +1,14 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System;
 using NUnit.Framework;
+using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Rulesets.FPSosu.UI;
+using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.Osu.Replays;
 using osu.Game.Rulesets.Scoring;
+using osu.Game.Scoring;
 using osu.Game.Tests.Visual;
 
 namespace osu.Game.Rulesets.FPSosu.Tests
@@ -12,16 +17,17 @@ namespace osu.Game.Rulesets.FPSosu.Tests
     /// Verifies that gameplay still scores through the 3D projection.
     /// </summary>
     /// <remarks>
-    /// This is the end-to-end proof that the transformation preserved playability. Autoplay aims by rotating the
+    /// This is the end-to-end proof that the transformation preserved playability. The replay aims by rotating the
     /// camera, so if projection, camera clamping, the cursor lock or hit detection were wrong, objects would sit
-    /// away from the crosshair and every one of them would be missed.
+    /// away from the crosshair and every one of them would be missed. The replay is injected directly because the
+    /// autoplay mod is intentionally not offered by this ruleset.
     /// </remarks>
     [TestFixture]
     public partial class TestSceneFPSosuAutoplay : PlayerTestScene
     {
         protected override Ruleset CreatePlayerRuleset() => new FPSosuRuleset();
 
-        protected override bool Autoplay => true;
+        protected override TestPlayer CreatePlayer(Ruleset ruleset) => new ReplayAutoplayPlayer();
 
         [Test]
         public void TestAutoplayScoresWithoutMissing()
@@ -47,6 +53,22 @@ namespace osu.Game.Rulesets.FPSosu.Tests
                 var camera = ((DrawableFPSosuRuleset)Player.DrawableRuleset).Camera;
                 return camera.Yaw != 0 || camera.Pitch != 0;
             });
+        }
+
+        /// <summary>
+        /// Drives gameplay from a generated replay, standing in for the autoplay mod which this ruleset does not
+        /// offer.
+        /// </summary>
+        private partial class ReplayAutoplayPlayer : TestPlayer
+        {
+            protected override void PrepareReplay()
+            {
+                DrawableRuleset?.SetReplayScore(new Score
+                {
+                    Replay = new OsuAutoGenerator(GameplayState.Beatmap, Array.Empty<Mod>()).Generate(),
+                    ScoreInfo = new ScoreInfo { User = new APIUser { Username = @"Test" } },
+                });
+            }
         }
     }
 }

@@ -2,12 +2,15 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Game.Rulesets.FPSosu.Configuration;
 using osu.Game.Rulesets.FPSosu.Projection;
 using osu.Game.Rulesets.Objects.Drawables;
+using osu.Game.Rulesets.Objects.Types;
+using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Rulesets.Osu.Objects.Drawables;
 using osu.Game.Rulesets.Osu.UI;
 using osu.Game.Rulesets.UI;
@@ -45,6 +48,12 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
         private FPSosuPlayfieldBoundary boundary = null!;
 
+        /// <summary>
+        /// The osu! judgement popup layer, inherited from <see cref="OsuPlayfield"/>. Popups are placed there once at
+        /// judgement time, so they are re-projected every frame to stay pinned to their note's board position.
+        /// </summary>
+        public JudgementContainer<DrawableOsuJudgement>? JudgementLayer { get; private set; }
+
         private float lastBoundaryYaw = float.NaN;
         private float lastBoundaryPitch = float.NaN;
         private bool boundaryProjectionDirty = true;
@@ -80,6 +89,13 @@ namespace osu.Game.Rulesets.FPSosu.UI
             // line up with the objects, so they are replaced by a boundary that follows the projection.
             FollowPoints.Hide();
             AddInternal(boundary = new FPSosuPlayfieldBoundary());
+        }
+
+        protected override void LoadComplete()
+        {
+            base.LoadComplete();
+
+            JudgementLayer = InternalChildren.OfType<JudgementContainer<DrawableOsuJudgement>>().FirstOrDefault();
         }
 
         private void updateProjector()
@@ -122,6 +138,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
             foreach (var entry in HitObjectContainer.AliveEntries)
                 project(entry.Value, yaw, pitch);
 
+            updateJudgements(yaw, pitch);
             updateSpinners(yaw, pitch);
         }
 
@@ -161,6 +178,41 @@ namespace osu.Game.Rulesets.FPSosu.UI
             osuObject.Alpha = 1;
             osuObject.Position = position;
             osuObject.Scale = new Vector2(scale);
+        }
+
+        /// <summary>
+        /// Re-projects the judgement popups so each one stays where its note was on the board, moving and scaling
+        /// with the world as the camera turns, exactly like the notes do.
+        /// </summary>
+        private void updateJudgements(float yaw, float pitch)
+        {
+            if (JudgementLayer == null)
+                return;
+
+            foreach (var judgement in JudgementLayer)
+            {
+                var hitObject = judgement.JudgedHitObject;
+
+                if (hitObject == null)
+                    continue;
+
+                // Sliders judge at their tail, matching where osu! places the popup; everything else at its position.
+                Vector2 playfieldPosition = (hitObject as OsuHitObject)?.StackedEndPosition
+                                            ?? (hitObject as IHasPosition)?.Position
+                                            ?? FPSosuProjector.PLAYFIELD_CENTRE;
+
+                var world = projector.PlayfieldToWorld(playfieldPosition);
+
+                if (!projector.WorldToPlayfield(world, yaw, pitch, out Vector2 position, out float scale))
+                {
+                    judgement.Alpha = 0;
+                    continue;
+                }
+
+                judgement.Alpha = 1;
+                judgement.Position = position;
+                judgement.Scale = new Vector2(scale * ((hitObject as OsuHitObject)?.Scale ?? 1));
+            }
         }
 
         /// <summary>
