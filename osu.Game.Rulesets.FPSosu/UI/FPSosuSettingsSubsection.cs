@@ -6,7 +6,7 @@ using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Sprites;
-using osu.Framework.Localisation;
+
 using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Overlays.Settings;
@@ -20,7 +20,6 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// </summary>
     public partial class FPSosuSettingsSubsection : RulesetSettingsSubsection
     {
-        protected override LocalisableString Header => "FPSosu";
         private readonly Bindable<FPSosuSensitivityGame> sourceGame = new Bindable<FPSosuSensitivityGame>();
         private readonly Bindable<string> sourceSensitivity = new Bindable<string>("1");
         private readonly Bindable<int?> sourceDpi = new Bindable<int?>(800);
