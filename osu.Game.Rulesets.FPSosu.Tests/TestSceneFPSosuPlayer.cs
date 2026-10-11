@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using osu.Game.Extensions;
 using osu.Game.Rulesets.FPSosu.Projection;
 using osu.Game.Rulesets.FPSosu.UI;
 using osu.Game.Rulesets.Osu.Objects.Drawables;
@@ -36,6 +37,22 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             AddAssert("fps drawable ruleset in use", () => Player.DrawableRuleset, Is.TypeOf<DrawableFPSosuRuleset>);
             AddAssert("crosshair cursor in use", () => playfield.Cursor, Is.TypeOf<FPSosuCrosshairContainer>);
             AddAssert("fps input manager in use", () => drawableRuleset.KeyBindingInputManager, Is.TypeOf<FPSosuInputManager>);
+        }
+
+        /// <summary>
+        /// Gameplay inherits osu! through a separate ruleset instance, so the identity that instance reports must be
+        /// FPSosu's. Otherwise scores, beatmaps and cached star ratings would be filed under standard osu!.
+        /// </summary>
+        [Test]
+        public void TestGameplayKeepsTheRegisteredRulesetIdentity()
+        {
+            var registered = new FPSosuRuleset().RulesetInfo;
+
+            AddAssert("picks up the registered ruleset", () => Player.DrawableRuleset != null && registered.ShortName == FPSosuRuleset.SHORT_NAME);
+            AddAssert("same short name", () => drawableRuleset.Ruleset.RulesetInfo.ShortName == registered.ShortName);
+            AddAssert("same name", () => drawableRuleset.Ruleset.RulesetInfo.Name == registered.Name);
+            AddAssert("same online id", () => drawableRuleset.Ruleset.RulesetInfo.OnlineID == registered.OnlineID);
+            AddAssert("not a legacy ruleset", () => !drawableRuleset.Ruleset.RulesetInfo.IsLegacyRuleset());
         }
 
         /// <summary>

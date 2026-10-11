@@ -21,49 +21,13 @@ The mouse rotates the camera while the crosshair stays pinned to the centre of t
 - Don't be afraid of using Spun out and/or Relax
 - Adjust playfield span frequently
 
-# Configuration
-## Projections
-
-| Mode | Behaviour |
-|---|---|
-| **Dome** (default) | The playfield is wrapped onto the inside of a sphere centred on the camera (X → yaw, Y → pitch). A flick costs the same angular distance anywhere on the board. |
-| **Plane** | The playfield floats as a flat rectangle in front of the camera. Edge targets cost progressively more angular movement, like a monitor target in a traditional aim trainer. |
-
-## Settings
-
+# Settings
 All settings live under *Options → Rulesets → FPSosu* and apply live.
-
-| Setting | Range | Default | Effect |
-|---|---|---|---|
-| Projection | Dome / Plane | Dome | How the playfield sits in the world |
-| Field of view | 30–150° | 90° | Zoom; lower magnifies the board |
-| Playfield span | 20–170° | 100° | Angular width of the beatmap; how far you turn to cross it |
-| Sensitivity | 0.05–10 | 1 | Multiplier on camera turn rate |
-| Crosshair overshoot | 0–120° | 45° | How far past the board edge you can look |
-| Invert vertical look | on/off | off | Flips pitch |
-| Show crosshair | on/off | on | Hides the crosshair |
-| Crosshair gap | 0–20 | 3 | Empty space between centre and lines |
-| Crosshair line length | 2–30 | 10 | Length of each line |
-| Crosshair line thickness | 0.5–10 | 2 | Thickness of lines and centre dot |
-| Crosshair opacity | 0–1 | 1 | Transparency |
-| Crosshair centre dot | on/off | on | Dot at the exact hit point |
-| Crosshair outline | on/off | on | Contrasting outline for visibility |
-| Crosshair colour | White/Red/Green/Blue | White | Tint of the crosshair |
-
-## Sensitivity converter
 
 The settings screen includes a converter that matches your turn rate from other FPS titles. Enter the source game and sensitivity, and the equivalent FPSosu sensitivity is computed and applied.
 
-| Supported Conversions: |
-|---|
-| Counter‑Strike 2 / CS:GO |
-| Valorant |
-| Rainbow Six Siege |
-| Apex Legends |
-| Overwatch 2 |
-| Call of Duty (MW/Warzone) |
 
-## Mods
+# Mods
 
 Because FPSosu extends the standard ruleset, most osu! mods work as usual (Hidden, Hard Rock, DoubleTime/Nightcore, Flashlight, Relax, Easy, No Fail, …). Mods that conflict with the 3D projection are hidden from the mod list:
 

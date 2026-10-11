@@ -1,24 +1,25 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using osu.Framework.Graphics;
-using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Shapes;
+using osu.Framework.Input.Bindings;
+using osu.Framework.Localisation;
 using osu.Game.Beatmaps;
+using osu.Game.Beatmaps.Legacy;
 using osu.Game.Configuration;
 using osu.Game.Overlays.Settings;
 using osu.Game.Rulesets.Configuration;
-using osu.Game.Rulesets.FPSosu.Configuration;
+using osu.Game.Rulesets.Difficulty;
+using osu.Game.Rulesets.Edit;
 using osu.Game.Rulesets.FPSosu.UI;
 using osu.Game.Rulesets.Mods;
-using osu.Game.Rulesets.Osu;
-using osu.Game.Rulesets.Osu.Mods;
+using osu.Game.Rulesets.Replays.Types;
+using osu.Game.Rulesets.Scoring;
 using osu.Game.Rulesets.UI;
-using osuTK;
-using osuTK.Graphics;
+using osu.Game.Scoring;
+using osu.Game.Screens.Ranking.Statistics;
+using osu.Game.Skinning;
 
 namespace osu.Game.Rulesets.FPSosu
 {
@@ -28,99 +29,113 @@ namespace osu.Game.Rulesets.FPSosu
     /// <remarks>
     /// The flat osu! playfield is embedded into a 3D world and projected back onto the screen through a camera that
     /// the mouse rotates, while the crosshair stays fixed at the centre of the screen. Everything else, including
-    /// hit objects, scoring, mods and difficulty calculation, is inherited from <see cref="OsuRuleset"/>.
+    /// hit objects, scoring, mods and difficulty calculation, is inherited from osu!.
+    ///
+    /// <para>
+    /// This type is what the game registers, and it exists only because of how <see cref="RealmRulesetStore"/>
+    /// registers rulesets. Anything implementing <see cref="ILegacyRuleset"/> is registered before everything else,
+    /// and its database row is looked up by <see cref="RulesetInfo.OnlineID"/> rather than by its instantiation info -
+    /// a row is only written when no row with that online ID exists yet. Every ruleset which is not itself a legacy
+    /// ruleset reports an online ID of <c>-1</c> (see the fallback in <see cref="Ruleset.RulesetInfo"/>), and so does
+    /// a derived ruleset which overrides <see cref="ILegacyRuleset.LegacyID"/> to keep away from osu!'s ID of 0.
+    /// A derived ruleset therefore loses its row to whichever other custom ruleset was registered first, and then
+    /// silently disappears from the game with nothing written to the log.
+    /// </para>
+    ///
+    /// <para>
+    /// So this type deliberately does <b>not</b> derive from <see cref="Osu.OsuRuleset"/>: not being an
+    /// <see cref="ILegacyRuleset"/> is what makes the store key its row on this type instead, which works alongside
+    /// any number of other custom rulesets. All of osu!'s behaviour lives in <see cref="FPSosuOsuRuleset"/>, an
+    /// internal ruleset which inherits <see cref="Osu.OsuRuleset"/> in full and is never registered itself, and the
+    /// members below simply forward to it. <see cref="DrawableFPSosuRuleset"/> still extends osu!'s drawable ruleset,
+    /// which is what the inherited osu! mods (Classic, Relax and Autopilot among them) require.
+    /// </para>
+    ///
+    /// <para>
+    /// When osu! is updated, check that this type forwards any newly added override of
+    /// <see cref="Osu.OsuRuleset"/> - <c>TestFPSosuRulesetSurface</c> fails if one is missed.
+    /// </para>
     /// </remarks>
-    public partial class FPSosuRuleset : OsuRuleset, ILegacyRuleset
+    public partial class FPSosuRuleset : Ruleset
     {
+        public const string SHORT_NAME = "fpsosuruleset";
+
+        public const string DESCRIPTION = "FPSosu";
+
+        public const string PLAYING_VERB = "Shooting targets";
+
         /// <summary>
-        /// Overridden so scores and beatmaps from this ruleset never collide with standard osu! (which is ID 0).
+        /// The osu! ruleset all gameplay behaviour is inherited from.
         /// </summary>
-        int ILegacyRuleset.LegacyID => -1;
+        private readonly FPSosuOsuRuleset osuEngine = new FPSosuOsuRuleset();
 
-        public override string Description => "FPSosu";
+        public override string ShortName => SHORT_NAME;
 
-        public override string ShortName => "fpsosuruleset";
+        public override string Description => DESCRIPTION;
 
-        public override string PlayingVerb => "Shooting targets";
+        public override string PlayingVerb => PLAYING_VERB;
+
+        /// <summary>
+        /// Reports the osu! API version this build was compiled against, which is what inheriting
+        /// <see cref="Osu.OsuRuleset"/> reported before. osu! refuses to load rulesets built against an older API.
+        /// </summary>
+        public override string RulesetAPIVersionSupported => CURRENT_RULESET_API_VERSION;
 
         public override DrawableRuleset CreateDrawableRulesetWith(IBeatmap beatmap, IReadOnlyList<Mod>? mods = null)
-            => new DrawableFPSosuRuleset(this, beatmap, mods);
+            => new DrawableFPSosuRuleset(osuEngine, beatmap, mods);
 
-        public override IRulesetConfigManager CreateConfig(SettingsStore? settings) => new FPSosuRulesetConfigManager(settings, RulesetInfo);
+        public override IRulesetConfigManager CreateConfig(SettingsStore? settings) => osuEngine.CreateConfig(settings);
 
         public override RulesetSettingsSubsection CreateSettings() => new FPSosuSettingsSubsection(this);
 
-        /// <summary>
-        /// The osu! mods which do not work under the 3D projection: they either error out or rewrite object positions
-        /// in ways the projection overwrites, so they are hidden from the mod list.
-        /// </summary>
-        private static readonly Type[] unsupported_mods =
-        {
-            typeof(OsuModAutoplay),
-            typeof(OsuModCinema),
-            typeof(OsuModBubbles),
-            typeof(OsuModBloom),
-            typeof(OsuModBarrelRoll),
-            typeof(OsuModDeflate),
-            typeof(OsuModGrow),
-            typeof(OsuModSpinIn),
-            typeof(OsuModTransform),
-            typeof(OsuModWiggle),
-            typeof(OsuModDepth),
-            typeof(OsuModRepel),
-            typeof(OsuModMagnetised),
-            typeof(OsuModNoScope),
-        };
+        #region Forwarded to osu!
 
-        public override IEnumerable<Mod> GetModsFor(ModType type)
-        {
-            foreach (var mod in base.GetModsFor(type))
-            {
-                if (mod is MultiMod multi)
-                {
-                    // Some incompatible mods are only offered wrapped in a multi-mod; drop those entirely and keep
-                    // the pairing only when it still contains compatible mods.
-                    var kept = multi.Mods.Where(m => !unsupported_mods.Contains(m.GetType())).ToArray();
+        public override ScoreProcessor CreateScoreProcessor() => osuEngine.CreateScoreProcessor();
 
-                    if (kept.Length == 0)
-                        continue;
+        public override HealthProcessor CreateHealthProcessor(double drainStartTime) => osuEngine.CreateHealthProcessor(drainStartTime);
 
-                    yield return kept.Length == multi.Mods.Length ? multi : kept.Length == 1 ? kept[0] : new MultiMod(kept);
-                }
-                else if (!unsupported_mods.Contains(mod.GetType()))
-                {
-                    yield return mod;
-                }
-            }
-        }
+        public override IBeatmapConverter CreateBeatmapConverter(IBeatmap beatmap) => osuEngine.CreateBeatmapConverter(beatmap);
 
-        public override Drawable CreateIcon() => new Icon();
+        public override IBeatmapProcessor CreateBeatmapProcessor(IBeatmap beatmap) => osuEngine.CreateBeatmapProcessor(beatmap);
 
-        /// <summary>
-        /// A sniper-scope crosshair: a ring with four ticks and a centre dot.
-        /// </summary>
-        public partial class Icon : CompositeDrawable
-        {
-            public Icon()
-            {
-                Size = new Vector2(20);
+        public override IEnumerable<KeyBinding> GetDefaultKeyBindings(int variant = 0) => osuEngine.GetDefaultKeyBindings(variant);
 
-                InternalChildren = new Drawable[]
-                {
-                    new Circle
-                    {
-                        RelativeSizeAxes = Axes.Both,
-                        Colour = Color4.Transparent,
-                        BorderColour = Color4.White,
-                        BorderThickness = 2,
-                    },
-                    new Box { Anchor = Anchor.Centre, Origin = Anchor.Centre, Size = new Vector2(2, 6), Position = new Vector2(0, -7), Colour = Color4.White },
-                    new Box { Anchor = Anchor.Centre, Origin = Anchor.Centre, Size = new Vector2(2, 6), Position = new Vector2(0, 7), Colour = Color4.White },
-                    new Box { Anchor = Anchor.Centre, Origin = Anchor.Centre, Size = new Vector2(6, 2), Position = new Vector2(-7, 0), Colour = Color4.White },
-                    new Box { Anchor = Anchor.Centre, Origin = Anchor.Centre, Size = new Vector2(6, 2), Position = new Vector2(7, 0), Colour = Color4.White },
-                    new Box { Anchor = Anchor.Centre, Origin = Anchor.Centre, Size = new Vector2(2), Colour = Color4.White },
-                };
-            }
-        }
+        public override IEnumerable<Mod> ConvertFromLegacyMods(LegacyMods mods) => osuEngine.ConvertFromLegacyMods(mods);
+
+        public override LegacyMods ConvertToLegacyMods(Mod[] mods) => osuEngine.ConvertToLegacyMods(mods);
+
+        public override IEnumerable<Mod> GetModsFor(ModType type) => osuEngine.GetModsFor(type);
+
+        public override ScoreMultiplierCalculator CreateScoreMultiplierCalculator(ScoreMultiplierContext context) => osuEngine.CreateScoreMultiplierCalculator(context);
+
+        public override Drawable CreateIcon() => osuEngine.CreateIcon();
+
+        public override DifficultyCalculator CreateDifficultyCalculator(IWorkingBeatmap beatmap) => osuEngine.CreateDifficultyCalculator(beatmap);
+
+        public override PerformanceCalculator CreatePerformanceCalculator() => osuEngine.CreatePerformanceCalculator();
+
+        public override HitObjectComposer CreateHitObjectComposer() => osuEngine.CreateHitObjectComposer();
+
+        public override IBeatmapVerifier CreateBeatmapVerifier() => osuEngine.CreateBeatmapVerifier();
+
+        public override ISkin? CreateSkinTransformer(ISkin skin, IBeatmap beatmap) => osuEngine.CreateSkinTransformer(skin, beatmap);
+
+        public override IConvertibleReplayFrame CreateConvertibleReplayFrame() => osuEngine.CreateConvertibleReplayFrame();
+
+        public override IEnumerable<HitResult> GetValidHitResults() => osuEngine.GetValidHitResults();
+
+        public override LocalisableString GetDisplayNameForHitResult(HitResult result) => osuEngine.GetDisplayNameForHitResult(result);
+
+        public override StatisticItem[] CreateStatisticsForScore(ScoreInfo score, IBeatmap playableBeatmap) => osuEngine.CreateStatisticsForScore(score, playableBeatmap);
+
+        public override IEnumerable<Drawable> CreateEditorSetupSections() => osuEngine.CreateEditorSetupSections();
+
+        public override BeatmapDifficulty GetAdjustedDisplayDifficulty(IBeatmapInfo difficulty, IReadOnlyCollection<Mod> mods) => osuEngine.GetAdjustedDisplayDifficulty(difficulty, mods);
+
+        public override IEnumerable<RulesetBeatmapAttribute> GetBeatmapAttributesForDisplay(IBeatmapInfo beatmapInfo, IReadOnlyCollection<Mod> mods) => osuEngine.GetBeatmapAttributesForDisplay(beatmapInfo, mods);
+
+        public override bool EditorShowScrollSpeed => osuEngine.EditorShowScrollSpeed;
+
+        #endregion
     }
 }
