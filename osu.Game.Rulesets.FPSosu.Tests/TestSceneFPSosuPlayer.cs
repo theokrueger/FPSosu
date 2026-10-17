@@ -4,7 +4,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using osu.Framework.Allocation;
+using osu.Framework.Utils;
 using osu.Game.Extensions;
+using osu.Game.Rulesets.FPSosu.Configuration;
 using osu.Game.Rulesets.FPSosu.Projection;
 using osu.Game.Rulesets.FPSosu.UI;
 using osu.Game.Rulesets.Osu.Objects.Drawables;
@@ -196,6 +199,103 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             AddStep("restore pass-through", () => drawableRuleset.KeyBindingInputManager.UseParentInput = true);
             AddWaitStep("let it resync", 5);
         }
+
+        /// <summary>
+        /// A graphics tablet reports absolute positions, so tablet input must point the camera at the pen rather than
+        /// accumulate movement. The cursor must also be left where the pen is: overriding it is what breaks a tablet,
+        /// because the next absolute report undoes the override.
+        /// </summary>
+        [Test]
+        public void TestTabletAbsolutePositionDrivesCamera()
+        {
+            AddUntilStep("wait for objects", () => aliveObjects().Any());
+
+            Vector2 penPosition = default;
+
+            AddStep("select tablet input", () => setInputSource(FPSosuInputSource.Tablet));
+
+            AddStep("place pen right of the crosshair", () => InputManager.MoveMouseTo(penPosition = crosshairScreenPosition + new Vector2(240, 0)));
+            AddUntilStep("camera turned right", () => camera.Yaw > 0.01f);
+
+            AddStep("place pen left of the crosshair", () => InputManager.MoveMouseTo(penPosition = crosshairScreenPosition - new Vector2(240, 0)));
+            AddUntilStep("camera turned left", () => camera.Yaw < -0.01f);
+
+            AddStep("place pen above the crosshair", () => InputManager.MoveMouseTo(penPosition = crosshairScreenPosition - new Vector2(0, 120)));
+            AddUntilStep("camera pitched up", () => camera.Pitch > 0.01f);
+            AddWaitStep("let it settle", 5);
+
+            // If the cursor were being pulled back, the camera would be recomputed from the crosshair each frame and
+            // would have collapsed back to the centre by now.
+            AddAssert("camera held at the pen", () => camera.Pitch > 0.01f);
+            AddAssert("pen position not overridden", () => Vector2.Distance(InputManager.CurrentState.Mouse.Position, penPosition) < 1f);
+
+            AddStep("restore mouse input", () => setInputSource(FPSosuInputSource.Mouse));
+        }
+
+        /// <summary>
+        /// Changing the source must not change what the Sensitivity slider means: the same movement has to turn the
+        /// camera the same distance whether it came from the mouse or from the pen's absolute position.
+        /// </summary>
+        [Test]
+        public void TestTabletSensitivityMatchesMouse()
+        {
+            AddUntilStep("wait for objects", () => aliveObjects().Any());
+
+            var offset = new Vector2(240, 120);
+            float mouseYaw = 0;
+            float mousePitch = 0;
+
+            AddStep("move the mouse", () => moveMouseBy(offset));
+            AddUntilStep("camera turned", () => camera.Yaw != 0);
+            AddStep("record mouse angles", () =>
+            {
+                mouseYaw = camera.Yaw;
+                mousePitch = camera.Pitch;
+            });
+
+            AddStep("select tablet input and place the pen", () =>
+            {
+                setInputSource(FPSosuInputSource.Tablet);
+                InputManager.MoveMouseTo(crosshairScreenPosition + offset);
+            });
+
+            AddUntilStep("pen turns the camera exactly as far", () =>
+                Precision.AlmostEquals(camera.Yaw, mouseYaw, 1e-3f) && Precision.AlmostEquals(camera.Pitch, mousePitch, 1e-3f));
+
+            AddStep("restore mouse input", () => setInputSource(FPSosuInputSource.Mouse));
+        }
+
+        /// <summary>
+        /// Switching sources must not turn the camera by the distance between where the old and new devices happen
+        /// to be. The accumulated mouse position is forgotten instead, so the new source starts from where it is.
+        /// </summary>
+        [Test]
+        public void TestSwitchingInputSourceDoesNotJump()
+        {
+            AddUntilStep("wait for objects", () => aliveObjects().Any());
+
+            AddStep("select tablet input", () => setInputSource(FPSosuInputSource.Tablet));
+            AddStep("place pen far from the crosshair", () => InputManager.MoveMouseTo(crosshairScreenPosition + new Vector2(600, 0)));
+            AddUntilStep("camera turned right", () => camera.Yaw > 0.01f);
+
+            float yawBefore = 0;
+
+            AddStep("record angles", () => yawBefore = camera.Yaw);
+            AddStep("restore mouse input", () => setInputSource(FPSosuInputSource.Mouse));
+            AddWaitStep("let updates run", 5);
+            AddAssert("camera did not jump", () => Precision.AlmostEquals(camera.Yaw, yawBefore, 1e-4f));
+        }
+
+        /// <summary>
+        /// The screen-space position of the point the crosshair marks, which is also where the input manager pins
+        /// its cursor.
+        /// </summary>
+        private Vector2 crosshairScreenPosition => playfield.ToScreenSpace(FPSosuProjector.PLAYFIELD_CENTRE);
+
+        private FPSosuConfigManager fpsConfig => drawableRuleset.Dependencies.Get<FPSosuConfigManager>();
+
+        private void setInputSource(FPSosuInputSource source)
+            => fpsConfig.GetBindable<FPSosuInputSource>(FPSosuRulesetSetting.InputSource).Value = source;
 
         private IEnumerable<DrawableOsuHitObject> aliveObjects()
             => playfield.HitObjectContainer.AliveObjects.OfType<DrawableOsuHitObject>();

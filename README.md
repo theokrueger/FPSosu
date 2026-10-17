@@ -6,11 +6,9 @@
 The standard osu! playfield is embedded in 3D and projected back onto the 2D playfield.
 The mouse rotates the camera while the crosshair stays pinned to the centre of the screen; hit detection, scoring, mods and difficulty are inherited untouched from standard osu!.
 
-**ONLY MOUSE INPUT IS SUPPORTED!**
-
 # Installation
 - Download [here](https://github.com/theokrueger/FPSosu/releases/latest/download/osu.Game.Rulesets.FPSosu.dll)
-- [Install Guide](https://rulesets.info/install/rulesets)
+-   [Install Guide](https://rulesets.info/install/rulesets)
 - Select mode in top menu bar of osu!lazer
 - **Ensure 'Show Converts' is enabled in map listing**
 - Configure options in `Rulesets -> FPSosu`
@@ -20,12 +18,13 @@ The mouse rotates the camera while the crosshair stays pinned to the centre of t
 - Make liberal usage of mods, especially Difficulty Adjust and setting AR and CS
 - Don't be afraid of using Spun out and/or Relax
 - Adjust playfield span frequently
+- **Select appropriate input method in settings**
 
-# Settings
+#Settings
+
 All settings live under *Options → Rulesets → FPSosu* and apply live.
 
 The settings screen includes a converter that matches your turn rate from other FPS titles. Enter the source game and sensitivity, and the equivalent FPSosu sensitivity is computed and applied.
-
 
 # Mods
 

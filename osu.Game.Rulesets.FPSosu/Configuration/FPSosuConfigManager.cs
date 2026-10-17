@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.ComponentModel;
 using osu.Game.Configuration;
 using osu.Game.Rulesets.Configuration;
 using osu.Game.Rulesets.FPSosu.Projection;
@@ -23,6 +24,7 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
             base.InitialiseDefaults();
 
             SetDefault(FPSosuRulesetSetting.ProjectionMode, FPSosuProjectionMode.Dome);
+            SetDefault(FPSosuRulesetSetting.InputSource, FPSosuInputSource.Mouse);
             SetDefault(FPSosuRulesetSetting.FieldOfView, FPSosuProjector.DEFAULT_FIELD_OF_VIEW, 30f, 150f, 1f);
             SetDefault(FPSosuRulesetSetting.PlayfieldSpan, FPSosuProjector.DEFAULT_PLAYFIELD_SPAN, 20f, 170f, 5f);
             SetDefault(FPSosuRulesetSetting.Sensitivity, 1f, 0.05f, 10f, 0.01f);
@@ -112,6 +114,29 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
         /// Whether a dot is drawn at the centre of the crosshair.
         /// </summary>
         CrosshairCenterDot,
+
+        /// <summary>
+        /// The device whose movement drives the camera: a relative mouse, or the absolute position of a tablet pen.
+        /// </summary>
+        InputSource,
+    }
+
+    /// <summary>
+    /// The devices which can drive the camera.
+    /// </summary>
+    public enum FPSosuInputSource
+    {
+        /// <summary>
+        /// Relative movement of the mouse cursor, accumulated frame to frame.
+        /// </summary>
+        [Description("Mouse")]
+        Mouse,
+
+        /// <summary>
+        /// The absolute position of a tablet pen, which points the camera directly.
+        /// </summary>
+        [Description("Tablet (absolute)")]
+        Tablet,
     }
 
     /// <summary>

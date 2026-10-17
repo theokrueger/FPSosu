@@ -5,7 +5,7 @@ FPSosu is a ruleset for **osu! lazer** that turns standard osu! into a **3D firs
 ## Core Concept
 
 - Hit objects keep their **real osu! playfield positions**. Only their drawable position and scale are rewritten each frame, by projecting them through the camera.
-- **Mouse movement rotates the camera** (yaw and pitch) instead of moving the cursor.
+- **Mouse movement (or tablet pen position) rotates the camera** (yaw and pitch) instead of moving the cursor. The input source is selectable in settings.
 - The **crosshair stays fixed at the centre of the playfield**. Objects sweep across the screen as the camera turns.
 - Aiming at an object means rotating until it sits under the crosshair. That is where hits are registered, so hit detection, slider tracking, spinners, judgements, scoring and star rating are all inherited from osu! unchanged.
 
@@ -47,11 +47,17 @@ Because a smaller playfield span packs objects closer together, object size also
 
 ### Input Handling
 
-`FPSosuInputManager` turns the frame-to-frame movement of the parent input manager's cursor into camera rotation. Measuring consecutive-position deltas (rather than recentering the cursor and reading its offset) applies every movement exactly once regardless of frame timing. The manager's own cursor is pinned to the crosshair, which is where hits are registered. The parent cursor is pulled back to the crosshair only once it drifts beyond a margin, so it never runs into the window edge and stops reporting movement.
+`FPSosuInputManager` turns movement of the parent input manager's cursor into camera rotation. Which device supplies it is chosen by the **Input source** setting (`FPSosuRulesetSetting.InputSource`).
 
-Camera control is gated on `UseParentInput`, which the drawable ruleset clears while paused and a replay handler clears during replays. While paused this leaves the cursor free to navigate the pause menu, and forgetting the last cursor position means the movement made over the menu is not applied as a jump on resume. Only the input manager hosting the playfield drives the camera; the ruleset creates a second input manager for the resume overlay, and that one has camera control disabled so overlay cursors stay free.
+In **Mouse** mode it reads the frame-to-frame movement of the parent cursor. Measuring consecutive-position deltas (rather than recentering the cursor and reading its offset) applies every movement exactly once regardless of frame timing. The parent cursor is pulled back to the crosshair only once it drifts beyond a margin, so it never runs into the window edge and stops reporting movement.
 
-Smooth camera control relies on **relative (raw) mouse input** being enabled in osu!'s input settings.
+In **Tablet** mode the pen's *absolute* position points the camera directly, with the pen at the crosshair looking straight ahead. This is what a graphics tablet reports (osu! reads it through OpenTabletDriver and re-asserts it every report), so the relative path cannot serve it: pulling the parent cursor back to the crosshair is immediately undone, and the disagreement shows up as the next frame's enormous delta. Absolute mode therefore never overrides the parent cursor at all. Both modes share one scale (`radiansPerLocalUnit()`), so the same movement turns the camera the same distance either way and the Sensitivity slider keeps its meaning when the source changes; a tablet's total turn range is simply its active area scaled by sensitivity.
+
+The manager's own cursor is always pinned to the crosshair, which is where hits are registered.
+
+Camera control is gated on `UseParentInput`, which the drawable ruleset clears while paused and a replay handler clears during replays. While paused this leaves the cursor free to navigate the pause menu, and forgetting the last cursor position means the movement made over the menu is not applied as a jump on resume. The last cursor position is also forgotten whenever the input source changes, so switching devices does not turn the camera by the distance between them. Only the input manager hosting the playfield drives the camera; the ruleset creates a second input manager for the resume overlay, and that one has camera control disabled so overlay cursors stay free.
+
+Smooth mouse control relies on **relative (raw) mouse input** being enabled in osu!'s input settings; tablet mode relies on osu!'s tablet input being enabled.
 
 Two deliberate deviations from osu!: the playfield's storyboard alignment shift is disabled (the crosshair must be at the true view centre), and the resume overlay is `DelayedResumeOverlay`, because the standard one requires clicking a specific position which is impossible with a locked cursor.
 
@@ -59,10 +65,10 @@ Two deliberate deviations from osu!: the playfield's storyboard alignment shift 
 
 ```bash
 dotnet build   # must be 0 errors, 0 warnings
-dotnet test    # 54 tests
+dotnet test    # 57 tests
 ```
 
-Tests cover the projection invariants (round-trips, span/FOV independence, clamping), the camera, and real gameplay through `PlayerTestScene`. The key end-to-end check is `TestSceneFPSosuAutoplay`: autoplay must build combo with **zero misses** while the camera rotates, which proves the projection preserved playability.
+Tests cover the projection invariants (round-trips, span/FOV independence, clamping), the camera, and real gameplay through `PlayerTestScene`. The key end-to-end check is `TestSceneFPSosuAutoplay`: autoplay must build combo with **zero misses** while the camera rotates, which proves the projection preserved playability. `TestSceneFPSosuPlayer` also covers the input source: tablet mode must point the camera from the pen's absolute position without overriding the cursor, and must turn the camera as far per unit of movement as the mouse does.
 
 `TestFPSosuRulesetRegistration` reproduces the registration bug described below against a real ruleset store, and `TestFPSosuRulesetSurface` fails if the registered ruleset stops forwarding an osu! override (which is what makes osu! updates safe).
 

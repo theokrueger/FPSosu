@@ -23,19 +23,26 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// </summary>
     /// <remarks>
     /// Buttons and key bindings are inherited unchanged, so clicking still hits whatever the crosshair covers. Only
-    /// positional input is reinterpreted:
-    /// <list type="number">
+    /// positional input is reinterpreted, and which device supplies it is chosen by
+    /// <see cref="FPSosuRulesetSetting.InputSource"/>:
+    /// <list type="bullet">
     /// <item><description>
-    /// Each frame, the movement of the parent input manager's cursor since the previous frame is converted into
-    /// camera rotation. Measuring frame-to-frame deltas (rather than recentering the cursor and reading its offset)
-    /// applies every movement exactly once regardless of frame timing.
+    /// <b>Mouse</b> (the default) is relative: each frame the movement of the parent input manager's cursor since
+    /// the previous frame is converted into camera rotation. Measuring frame-to-frame deltas (rather than
+    /// recentering the cursor and reading its offset) applies every movement exactly once regardless of frame
+    /// timing. The parent cursor is pulled back to the crosshair only if it drifts beyond a margin, so it never runs
+    /// into the window edge and stops reporting movement.
     /// </description></item>
     /// <item><description>
-    /// This manager's own cursor is pinned to the crosshair, which is where hits are registered. The parent cursor is
-    /// pulled back to the crosshair only if it drifts beyond a margin, so it never runs into the window edge and
-    /// stops reporting movement.
+    /// <b>Tablet</b> is absolute: the pen's position on the tablet points the camera, with the pen at the crosshair
+    /// looking straight ahead. This is what a graphics tablet actually reports, and the reason the relative path
+    /// cannot serve it: pulling the parent cursor back to the crosshair is immediately undone by the next absolute
+    /// pen report, so the resulting deltas oscillate. Absolute input therefore never overrides the parent cursor.
     /// </description></item>
     /// </list>
+    /// Both devices share one scale, so a given movement turns the camera just as far either way and the Sensitivity
+    /// slider keeps its meaning when the source changes. This manager's own cursor is always pinned to the crosshair,
+    /// which is where hits are registered.
     /// While paused (or during a replay) camera control is inactive, leaving the cursor free for menus.
     /// </remarks>
     public partial class FPSosuInputManager : OsuInputManager
@@ -46,6 +53,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
         private readonly BindableFloat sensitivity = new BindableFloat(1);
         private readonly BindableBool invertPitch = new BindableBool();
+        private readonly Bindable<FPSosuInputSource> inputSource = new Bindable<FPSosuInputSource>(FPSosuInputSource.Mouse);
 
         [Resolved]
         private GameHost host { get; set; } = null!;
@@ -95,6 +103,11 @@ namespace osu.Game.Rulesets.FPSosu.UI
         {
             config?.BindWith(FPSosuRulesetSetting.Sensitivity, sensitivity);
             config?.BindWith(FPSosuRulesetSetting.InvertPitch, invertPitch);
+            config?.BindWith(FPSosuRulesetSetting.InputSource, inputSource);
+
+            // Changing source mid-play would otherwise turn the stale cursor position into one enormous delta. The
+            // position is forgotten instead, so the new source starts from wherever it is now.
+            inputSource.BindValueChanged(_ => lastParentPosition = null);
 
             var mouseHandler = host.AvailableInputHandlers.OfType<MouseHandler>().FirstOrDefault();
 
@@ -134,13 +147,8 @@ namespace osu.Game.Rulesets.FPSosu.UI
             if (screenSpaceDelta == Vector2.Zero)
                 return;
 
-            // Express the movement in this manager's local units, which are screen pixels of the ruleset area. One
-            // mouse count moves one pixel, so the turn rate is a physical constant independent of the window size -
-            // the property the sensitivity converter relies on. osu!'s own cursor sensitivity is divided back out so
-            // it never stacks with the FPSosu sensitivity.
-            Vector2 local = ToLocalSpace(ToScreenSpace(Vector2.Zero) + screenSpaceDelta);
-
-            float scale = FPSosuSensitivityConverter.EffectiveRadiansPerPixel(cursorSensitivity?.Value ?? 1, highPrecisionMouse?.Value ?? false) * sensitivity.Value;
+            Vector2 local = screenDeltaToLocal(screenSpaceDelta);
+            float scale = radiansPerLocalUnit();
 
             // Screen Y grows downwards, so moving the mouse up (negative Y) must raise the pitch.
             float pitchDelta = -local.Y * scale;
@@ -150,6 +158,45 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             camera.Rotate(local.X * scale, pitchDelta);
         }
+
+        /// <summary>
+        /// Points the camera from the absolute position of a tablet pen.
+        /// </summary>
+        /// <param name="screenSpacePosition">The pen's position, in screen space.</param>
+        /// <param name="crosshair">The screen-space position the crosshair (and therefore the camera's rest
+        /// orientation) is held at.</param>
+        private void applyAbsoluteLook(Vector2 screenSpacePosition, Vector2 crosshair)
+        {
+            // Sharing the relative path's scale is what makes a pen movement turn the camera exactly as far as the
+            // same mouse movement, so Sensitivity keeps its meaning across sources. Screen Y grows downwards, so a
+            // pen above the crosshair must raise the pitch.
+            Vector2 local = screenDeltaToLocal(screenSpacePosition - crosshair);
+            float scale = radiansPerLocalUnit();
+
+            float pitch = -local.Y * scale;
+
+            if (invertPitch.Value)
+                pitch = -pitch;
+
+            camera.LookAt(local.X * scale, pitch);
+        }
+
+        /// <summary>
+        /// Expresses a screen-space movement in this manager's local units.
+        /// </summary>
+        /// <remarks>
+        /// One mouse count moves one local unit, so the turn rate is a physical constant independent of the window
+        /// size - the property the sensitivity converter relies on. osu!'s own cursor sensitivity is divided back
+        /// out of the scale itself so it never stacks with the FPSosu sensitivity.
+        /// </remarks>
+        private Vector2 screenDeltaToLocal(Vector2 screenSpaceDelta)
+            => ToLocalSpace(ToScreenSpace(Vector2.Zero) + screenSpaceDelta);
+
+        /// <summary>
+        /// Radians of camera rotation per local unit of movement, shared by both input sources.
+        /// </summary>
+        private float radiansPerLocalUnit()
+            => FPSosuSensitivityConverter.EffectiveRadiansPerPixel(cursorSensitivity?.Value ?? 1, highPrecisionMouse?.Value ?? false) * sensitivity.Value;
 
         protected override void Update()
         {
@@ -166,28 +213,41 @@ namespace osu.Game.Rulesets.FPSosu.UI
                 return;
             }
 
+            // The screen-space point the crosshair is held at, which is also the rest orientation of the camera and
+            // therefore the origin absolute input is measured from.
+            Vector2 target = LockPosition?.Invoke() ?? ToScreenSpace(DrawSize / 2);
+
             if (parent.CurrentState.Mouse.IsPositionValid)
             {
-                Vector2 position = parent.CurrentState.Mouse.Position;
+                if (inputSource.Value == FPSosuInputSource.Tablet)
+                {
+                    // The pen's position is absolute, so it points the camera directly. The parent cursor is left
+                    // alone: a tablet re-asserts its absolute position every report, so overriding it here would be
+                    // undone immediately and the mismatch would show up as the next frame's delta.
+                    applyAbsoluteLook(parent.CurrentState.Mouse.Position, target);
+                }
+                else
+                {
+                    Vector2 position = parent.CurrentState.Mouse.Position;
 
-                // Rotate by however far the cursor moved since the last frame, rather than recentering it, so the
-                // movement is applied exactly once regardless of frame timing.
-                if (lastParentPosition is Vector2 last)
-                    rotateBy(position - last);
+                    // Rotate by however far the cursor moved since the last frame, rather than recentering it, so the
+                    // movement is applied exactly once regardless of frame timing.
+                    if (lastParentPosition is Vector2 last)
+                        rotateBy(position - last);
 
-                lastParentPosition = position;
+                    lastParentPosition = position;
+                }
             }
 
             // Hold this manager's own cursor at the crosshair, where hits are registered.
-            Vector2 target = LockPosition?.Invoke() ?? ToScreenSpace(DrawSize / 2);
-
             if (CurrentState.Mouse.Position != target)
                 new MousePositionAbsoluteInput { Position = target }.Apply(CurrentState, this);
 
             // Keep the parent's cursor from running into the edge of the window, where it would stop reporting
             // movement. Pull it back to the crosshair only once it drifts beyond a margin, so the frame-to-frame
-            // deltas above are left intact during normal play.
-            if (parent.CurrentState.Mouse.IsPositionValid)
+            // deltas above are left intact during normal play. This must not run for a tablet, whose absolute
+            // position would simply be re-reported.
+            if (inputSource.Value == FPSosuInputSource.Mouse && parent.CurrentState.Mouse.IsPositionValid)
             {
                 float margin = Math.Min(parent.DrawSize.X, parent.DrawSize.Y) * 0.4f;
 

@@ -60,6 +60,12 @@ namespace osu.Game.Rulesets.FPSosu.UI
                     Current = config.GetBindable<float>(FPSosuRulesetSetting.PlayfieldSpan),
                     KeyboardStep = 5,
                 },
+                new SettingsEnumDropdown<FPSosuInputSource>
+                {
+                    LabelText = "Input source",
+                    TooltipText = "Which device turns the camera. Mouse reads relative movement. Tablet reads the pen's absolute position, so the pen points the camera directly (requires osu!'s tablet input to be enabled); raise Sensitivity if your tablet's active area does not turn far enough.",
+                    Current = config.GetBindable<FPSosuInputSource>(FPSosuRulesetSetting.InputSource),
+                },
                 new SettingsSlider<float>
                 {
                     LabelText = "Sensitivity",
