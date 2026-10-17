@@ -60,12 +60,13 @@ namespace osu.Game.Rulesets.FPSosu
             => new DrawableFPSosuRuleset(this, beatmap, mods);
 
         /// <summary>
-        /// The osu! mods which do not work under the 3D projection: they either error out or rewrite object positions
-        /// in ways the projection overwrites, so they are hidden from the mod list.
+        /// The osu! mods which do not work under the 3D projection: they error out, rewrite object positions in ways
+        /// the projection overwrites, or drive the cursor themselves (which is pinned to the crosshair here).
         /// </summary>
         private static readonly Type[] unsupported_mods =
         {
             typeof(OsuModAutoplay),
+            typeof(OsuModAutopilot),
             typeof(OsuModCinema),
             typeof(OsuModBubbles),
             typeof(OsuModBloom),

@@ -13,7 +13,8 @@ namespace osu.Game.Rulesets.FPSosu.Tests
 {
     /// <summary>
     /// The 3D projection is incompatible with a set of osu! mods: some crash it, others rewrite object positions in
-    /// ways the projection overwrites. They must not be offered in the mod list.
+    /// ways the projection overwrites, and others move the cursor which is pinned to the crosshair. They must not be
+    /// offered in the mod list.
     /// </summary>
     [TestFixture]
     public class TestFPSosuModList
@@ -21,6 +22,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         private static readonly Type[] removed_mods =
         {
             typeof(OsuModAutoplay),
+            typeof(OsuModAutopilot),
             typeof(OsuModCinema),
             typeof(OsuModBubbles),
             typeof(OsuModBloom),

@@ -23,8 +23,8 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
             base.InitialiseDefaults();
 
             SetDefault(FPSosuRulesetSetting.ProjectionMode, FPSosuProjectionMode.Dome);
-            SetDefault(FPSosuRulesetSetting.FieldOfView, 90f, 30f, 150f, 1f);
-            SetDefault(FPSosuRulesetSetting.PlayfieldSpan, 100f, 20f, 170f, 5f);
+            SetDefault(FPSosuRulesetSetting.FieldOfView, FPSosuProjector.DEFAULT_FIELD_OF_VIEW, 30f, 150f, 1f);
+            SetDefault(FPSosuRulesetSetting.PlayfieldSpan, FPSosuProjector.DEFAULT_PLAYFIELD_SPAN, 20f, 170f, 5f);
             SetDefault(FPSosuRulesetSetting.Sensitivity, 1f, 0.05f, 10f, 0.01f);
             SetDefault(FPSosuRulesetSetting.CrosshairOvershoot, 45f, 0f, 120f, 5f);
             SetDefault(FPSosuRulesetSetting.InvertPitch, false);

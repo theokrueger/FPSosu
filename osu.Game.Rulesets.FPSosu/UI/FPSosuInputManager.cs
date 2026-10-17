@@ -100,8 +100,10 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             if (mouseHandler != null)
             {
-                cursorSensitivity = mouseHandler.Sensitivity.GetBoundCopy();
-                highPrecisionMouse = mouseHandler.UseRelativeMode.GetBoundCopy();
+                // Read the handler's own bindables rather than bound copies: they live as long as the host, so a
+                // copy would only add a subscription which this manager is never in a position to dispose.
+                cursorSensitivity = mouseHandler.Sensitivity;
+                highPrecisionMouse = mouseHandler.UseRelativeMode;
             }
         }
 

@@ -37,6 +37,12 @@ namespace osu.Game.Rulesets.FPSosu.UI
         [Cached]
         public FPSosuCamera Camera { get; } = new FPSosuCamera();
 
+        /// <summary>
+        /// Whether the primary playfield input manager has been created. The ruleset creates a second input manager
+        /// to host the resume overlay, which must be left unable to drive the camera.
+        /// </summary>
+        private bool primaryInputManagerCreated;
+
         public new FPSosuPlayfield Playfield => (FPSosuPlayfield)base.Playfield;
 
         public new FPSosuInputManager KeyBindingInputManager => (FPSosuInputManager)base.KeyBindingInputManager;
@@ -67,8 +73,6 @@ namespace osu.Game.Rulesets.FPSosu.UI
         }
 
         protected override Playfield CreatePlayfield() => new FPSosuPlayfield();
-
-        private bool primaryInputManagerCreated;
 
         protected override PassThroughInputManager CreateInputManager()
         {

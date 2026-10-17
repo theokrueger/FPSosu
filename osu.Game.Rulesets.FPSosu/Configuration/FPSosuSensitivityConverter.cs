@@ -26,6 +26,12 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
         public const float RADIANS_PER_PIXEL = 0.0005f;
 
         /// <summary>
+        /// Used to turn mouse travel into physical distance: a full 360 degree turn needs 360 / yaw mouse counts,
+        /// each one 2.54 cm per DPI, giving cm/360 = <c>360 * centimetres_per_inch / (dpi * yaw)</c>.
+        /// </summary>
+        private const float centimetres_per_inch = 2.54f;
+
+        /// <summary>
         /// FPSosu's yaw: degrees of camera rotation per mouse count at a sensitivity of 1.
         /// </summary>
         public static float FpsosuYawDegrees => RADIANS_PER_PIXEL * 180 / MathF.PI;
@@ -68,14 +74,14 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
         /// and DPI.
         /// </summary>
         public static float GetCmPer360(this FPSosuSensitivityGame game, float sensitivity, float dpi)
-            => 914.4f / (dpi * sensitivity * game.GetYawDegrees());
+            => 360 * centimetres_per_inch / (dpi * sensitivity * game.GetYawDegrees());
 
         /// <summary>
         /// The physical distance in centimetres the mouse must travel for a full 360° turn in FPSosu at the given
         /// sensitivity and DPI.
         /// </summary>
         public static float GetFPSosuCmPer360(float sensitivity, float dpi)
-            => 914.4f / (dpi * sensitivity * FpsosuYawDegrees);
+            => 360 * centimetres_per_inch / (dpi * sensitivity * FpsosuYawDegrees);
     }
 
     /// <summary>

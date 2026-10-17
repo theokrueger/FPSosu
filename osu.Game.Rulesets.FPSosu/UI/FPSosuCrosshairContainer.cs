@@ -95,7 +95,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
             {
                 base.LoadComplete();
 
-                crosshairOutline.BindValueChanged(outline => updateOutline(outline.NewValue), true);
+                crosshairOutline.BindValueChanged(state => updateOutline(state.NewValue), true);
                 crosshairColour.BindValueChanged(_ => updateColour(), true);
                 crosshairGap.BindValueChanged(_ => rebuild());
                 crosshairLineLength.BindValueChanged(_ => rebuild());
@@ -165,7 +165,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             private void updateColour()
             {
-                Color4 colour = toColour(crosshairColour.Value);
+                var colour = toColour(crosshairColour.Value);
 
                 foreach (var piece in fillPieces)
                     piece.Colour = colour;

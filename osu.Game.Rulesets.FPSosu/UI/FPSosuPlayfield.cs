@@ -37,14 +37,15 @@ namespace osu.Game.Rulesets.FPSosu.UI
         private FPSosuCamera camera { get; set; } = null!;
 
         private readonly Bindable<FPSosuProjectionMode> projectionMode = new Bindable<FPSosuProjectionMode>(FPSosuProjectionMode.Dome);
-        private readonly BindableFloat fieldOfView = new BindableFloat(90);
-        private readonly BindableFloat playfieldSpan = new BindableFloat(100);
+        private readonly BindableFloat fieldOfView = new BindableFloat(FPSosuProjector.DEFAULT_FIELD_OF_VIEW);
+        private readonly BindableFloat playfieldSpan = new BindableFloat(FPSosuProjector.DEFAULT_PLAYFIELD_SPAN);
         private readonly BindableFloat crosshairOvershoot = new BindableFloat(45);
 
         /// <summary>
-        /// The current projection. Rebuilt only when a setting changes, so the per-frame path stays allocation free.
+        /// The projection currently in use. Rebuilt only when a setting changes, so the per-frame path stays
+        /// allocation free.
         /// </summary>
-        private FPSosuProjector projector;
+        public FPSosuProjector Projector { get; private set; }
 
         private FPSosuPlayfieldBoundary boundary = null!;
 
@@ -67,10 +68,10 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
         /// <summary>
         /// Degrees of spinner rotation earned per radian of camera turn. With the default overshoot the camera can
-        /// sweep roughly 190 degrees edge to edge, and this value makes one such sweep spin the disc about once, so
-        /// sweeping the camera back and forth completes spinners at a natural pace.
+        /// sweep roughly 190 degrees edge to edge, and this value makes one such sweep spin the disc about three
+        /// times, so a single sweep contributes a meaningful amount towards completing a spinner.
         /// </summary>
-        private const float spinner_rotation_per_camera_radian = 100f;
+        private const float spinner_rotation_per_camera_radian = 300f;
 
         [BackgroundDependencyLoader]
         private void load(FPSosuConfigManager? config)
@@ -100,7 +101,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
         private void updateProjector()
         {
-            projector = new FPSosuProjector(projectionMode.Value, fieldOfView.Value, playfieldSpan.Value);
+            Projector = new FPSosuProjector(projectionMode.Value, fieldOfView.Value, playfieldSpan.Value);
 
             // Keep every object reachable under the new projection, plus any configured overshoot past the edge.
             updateAngularLimit();
@@ -111,13 +112,8 @@ namespace osu.Game.Rulesets.FPSosu.UI
         private void updateAngularLimit()
         {
             float overshoot = float.DegreesToRadians(crosshairOvershoot.Value);
-            camera.AngularLimit = projector.AngularExtent + new Vector2(overshoot);
+            camera.AngularLimit = Projector.AngularExtent + new Vector2(overshoot);
         }
-
-        /// <summary>
-        /// The projection currently in use.
-        /// </summary>
-        public FPSosuProjector Projector => projector;
 
         protected override void Update()
         {
@@ -128,7 +124,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             if (boundaryProjectionDirty || yaw != lastBoundaryYaw || pitch != lastBoundaryPitch)
             {
-                boundary.Refresh(projector, yaw, pitch);
+                boundary.Refresh(Projector, yaw, pitch);
 
                 lastBoundaryYaw = yaw;
                 lastBoundaryPitch = pitch;
@@ -159,16 +155,19 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             // Spinners are spun in place at the centre of the view rather than aimed at, so keep them centred while
             // the world turns around them. Their rotation is driven by camera movement in updateSpinners.
-            if (osuObject is DrawableSpinner)
+            if (osuObject is DrawableSpinner spinner)
             {
-                osuObject.Alpha = 1;
-                osuObject.Position = FPSosuProjector.PLAYFIELD_CENTRE;
+                // Take over the spinner's rotation: the cursor never moves, so its own cursor-driven tracking could
+                // never accumulate any. updateSpinners drives it from camera movement instead.
+                spinner.HandleUserInput = false;
+                spinner.Alpha = 1;
+                spinner.Position = FPSosuProjector.PLAYFIELD_CENTRE;
                 return;
             }
 
-            var world = projector.PlayfieldToWorld(osuObject.HitObject.StackedPosition);
+            var world = Projector.PlayfieldToWorld(osuObject.HitObject.StackedPosition);
 
-            if (!projector.WorldToPlayfield(world, yaw, pitch, out Vector2 position, out float scale))
+            if (!Projector.WorldToPlayfield(world, yaw, pitch, out Vector2 position, out float scale))
             {
                 // Behind the camera. Hide it rather than draw a mirrored ghost in front of the player.
                 osuObject.Alpha = 0;
@@ -201,9 +200,9 @@ namespace osu.Game.Rulesets.FPSosu.UI
                                             ?? (hitObject as IHasPosition)?.Position
                                             ?? FPSosuProjector.PLAYFIELD_CENTRE;
 
-                var world = projector.PlayfieldToWorld(playfieldPosition);
+                var world = Projector.PlayfieldToWorld(playfieldPosition);
 
-                if (!projector.WorldToPlayfield(world, yaw, pitch, out Vector2 position, out float scale))
+                if (!Projector.WorldToPlayfield(world, yaw, pitch, out Vector2 position, out float scale))
                 {
                     judgement.Alpha = 0;
                     continue;
@@ -226,7 +225,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
             Vector2 headPlayfield = hitObject.StackedPosition;
             Vector2 tailPlayfield = headPlayfield + hitObject.Path.PositionAt(1);
 
-            if (!projector.WorldToPlayfield(projector.PlayfieldToWorld(headPlayfield), yaw, pitch, out Vector2 headScreen, out float headScale))
+            if (!Projector.WorldToPlayfield(Projector.PlayfieldToWorld(headPlayfield), yaw, pitch, out Vector2 headScreen, out float headScale))
             {
                 // Head is behind the camera; hide the whole slider rather than draw a mirrored ghost.
                 slider.Alpha = 0;
@@ -235,7 +234,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             slider.Alpha = 1;
 
-            if (projector.WorldToPlayfield(projector.PlayfieldToWorld(tailPlayfield), yaw, pitch, out Vector2 tailScreen, out _))
+            if (Projector.WorldToPlayfield(Projector.PlayfieldToWorld(tailPlayfield), yaw, pitch, out Vector2 tailScreen, out _))
             {
                 Vector2 localSpan = tailPlayfield - headPlayfield;
                 Vector2 screenSpan = tailScreen - headScreen;
@@ -277,7 +276,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
             foreach (var entry in HitObjectContainer.AliveEntries)
             {
                 if (entry.Value is DrawableSpinner spinner)
-                    spinSpinner(spinner, rotationDelta*3);
+                    spinSpinner(spinner, rotationDelta);
             }
         }
 
@@ -288,12 +287,10 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// The cursor is pinned to the crosshair, so the standard "move the cursor in circles" action is not
         /// possible. Rotating the camera takes its place. This mirrors how the Spun Out mod drives spinners, except
         /// the rotation comes from camera movement instead of a fixed speed, and no button needs to be held.
+        /// <see cref="project"/> disables the spinner's own cursor tracking so this is the only source of rotation.
         /// </remarks>
         private void spinSpinner(DrawableSpinner spinner, float rotationDelta)
         {
-            // Stop the spinner listening for (pinned) cursor input and take over its tracking.
-            spinner.HandleUserInput = false;
-
             var tracker = spinner.RotationTracker;
             tracker.Tracking = tracker.IsSpinnableTime && !spinner.Result.HasResult;
 

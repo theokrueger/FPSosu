@@ -48,17 +48,28 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         private const float dome_radius = 512f;
 
         /// <summary>
-        /// The focal length at the default field of view of 90 degrees. As tan(45) is 1 this equals the playfield
+        /// The default horizontal field of view, in degrees. A centred resting object is at its natural osu! size
+        /// at this value, so the default view matches standard osu! exactly.
+        /// </summary>
+        public const float DEFAULT_FIELD_OF_VIEW = 90f;
+
+        /// <summary>
+        /// The default playfield span, in degrees. Objects keep their natural osu! size at this span, and other
+        /// spans rescale them in proportion.
+        /// </summary>
+        public const float DEFAULT_PLAYFIELD_SPAN = 100f;
+
+        private const float min_field_of_view = 10f;
+        private const float max_field_of_view = 170f;
+        private const float min_playfield_span = 10f;
+        private const float max_playfield_span = 170f;
+
+        /// <summary>
+        /// The focal length at <see cref="DEFAULT_FIELD_OF_VIEW"/>. As tan(45) is 1 this equals the playfield
         /// half-width. Object scale is normalised against it so that moving away from the default field of view
         /// magnifies or shrinks objects, while the default view keeps them at their natural osu! size.
         /// </summary>
-        private static readonly float default_focal_length = PLAYFIELD_CENTRE.X;
-
-        /// <summary>
-        /// The playfield span, in degrees, at which objects keep their natural osu! size. Matches the default
-        /// PlayfieldSpan setting, so the default view is unchanged and only other spans rescale objects.
-        /// </summary>
-        private const float reference_span = 100f;
+        private static readonly float default_focal_length = PLAYFIELD_CENTRE.X / MathF.Tan(float.DegreesToRadians(DEFAULT_FIELD_OF_VIEW) / 2);
 
         /// <summary>
         /// Points closer to the camera than this along the view axis are treated as not visible.
@@ -108,12 +119,12 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         {
             this.mode = mode;
 
-            float clampedFov = Math.Clamp(fieldOfView, 10f, 170f);
-            float clampedSpan = Math.Clamp(playfieldSpan, 10f, 170f);
+            float clampedFov = Math.Clamp(fieldOfView, min_field_of_view, max_field_of_view);
+            float clampedSpan = Math.Clamp(playfieldSpan, min_playfield_span, max_playfield_span);
 
             focalLength = PLAYFIELD_CENTRE.X / MathF.Tan(float.DegreesToRadians(clampedFov) / 2);
             halfSpan = float.DegreesToRadians(clampedSpan) / 2;
-            spanObjectScale = clampedSpan / reference_span;
+            spanObjectScale = clampedSpan / DEFAULT_PLAYFIELD_SPAN;
 
             if (mode == FPSosuProjectionMode.Dome)
             {
