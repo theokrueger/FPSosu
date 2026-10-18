@@ -34,15 +34,21 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// into the window edge and stops reporting movement.
     /// </description></item>
     /// <item><description>
-    /// <b>Tablet</b> is absolute: the pen's position on the tablet points the camera, with the pen at the crosshair
-    /// looking straight ahead. This is what a graphics tablet actually reports, and the reason the relative path
-    /// cannot serve it: pulling the parent cursor back to the crosshair is immediately undone by the next absolute
-    /// pen report, so the resulting deltas oscillate. Absolute input therefore never overrides the parent cursor.
+    /// <b>Tablet (mouse sensitivity)</b> is absolute: the pen's position on the tablet points the camera, with the
+    /// pen at the crosshair looking straight ahead, turned at the same rate per unit of movement as the mouse. This
+    /// is what a graphics tablet actually reports, and the reason the relative path cannot serve it: pulling the
+    /// parent cursor back to the crosshair is immediately undone by the next absolute pen report, so the resulting
+    /// deltas oscillate. Absolute input therefore never overrides the parent cursor.
+    /// </description></item>
+    /// <item><description>
+    /// <b>Standard tablet style</b> is also absolute, but geometric: the pen points at a position on the beatmap and
+    /// the camera turns so that position is under the crosshair, exactly as a tablet behaves in standard osu!. Its
+    /// range therefore follows the playfield span, and Sensitivity does not apply.
     /// </description></item>
     /// </list>
-    /// Both devices share one scale, so a given movement turns the camera just as far either way and the Sensitivity
-    /// slider keeps its meaning when the source changes. This manager's own cursor is always pinned to the crosshair,
-    /// which is where hits are registered.
+    /// The mouse and <b>Tablet (mouse sensitivity)</b> modes share one scale, so a given movement turns the camera
+    /// just as far either way and the Sensitivity slider keeps its meaning when the source changes. This manager's
+    /// own cursor is always pinned to the crosshair, which is where hits are registered.
     /// While paused (or during a replay) camera control is inactive, leaving the cursor free for menus.
     /// </remarks>
     public partial class FPSosuInputManager : OsuInputManager
@@ -80,6 +86,13 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// crosshair is drawn. Supplied by the drawable ruleset once the playfield exists.
         /// </summary>
         public Func<Vector2>? LockPosition { get; set; }
+
+        /// <summary>
+        /// Converts a screen-space position into the camera angles which bring that point of the beatmap under the
+        /// crosshair. Supplied by the drawable ruleset once the playfield exists, and used by
+        /// <see cref="FPSosuInputSource.TabletStandard"/>.
+        /// </summary>
+        public Func<Vector2, Vector2>? ScreenToPlayfieldAngles { get; set; }
 
         /// <summary>
         /// The parent input manager, whose cursor position is the one the OS actually tracks.
@@ -182,6 +195,30 @@ namespace osu.Game.Rulesets.FPSosu.UI
         }
 
         /// <summary>
+        /// Points the camera at the point of the beatmap under a tablet pen.
+        /// </summary>
+        /// <param name="screenSpacePosition">The pen's position, in screen space.</param>
+        /// <remarks>
+        /// Unlike <see cref="applyAbsoluteLook"/> this is geometric rather than a scaled movement: the pen points at
+        /// a position on the beatmap and the camera turns so that position is under the crosshair, exactly as a
+        /// tablet behaves in standard osu!. Sensitivity deliberately does not apply, because the playfield span
+        /// already defines how far the pen must travel to cross the beatmap; scaling the mapping would break the
+        /// pen-to-beatmap correspondence.
+        /// </remarks>
+        private void applyPlayfieldScaledLook(Vector2 screenSpacePosition)
+        {
+            Vector2 angles = ScreenToPlayfieldAngles?.Invoke(screenSpacePosition) ?? Vector2.Zero;
+
+            // Screen Y grows downwards, so a pen above the crosshair must raise the pitch.
+            float pitch = angles.Y;
+
+            if (invertPitch.Value)
+                pitch = -pitch;
+
+            camera.LookAt(angles.X, pitch);
+        }
+
+        /// <summary>
         /// Expresses a screen-space movement in this manager's local units.
         /// </summary>
         /// <remarks>
@@ -219,23 +256,32 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             if (parent.CurrentState.Mouse.IsPositionValid)
             {
-                if (inputSource.Value == FPSosuInputSource.Tablet)
-                {
-                    // The pen's position is absolute, so it points the camera directly. The parent cursor is left
-                    // alone: a tablet re-asserts its absolute position every report, so overriding it here would be
-                    // undone immediately and the mismatch would show up as the next frame's delta.
-                    applyAbsoluteLook(parent.CurrentState.Mouse.Position, target);
-                }
-                else
-                {
-                    Vector2 position = parent.CurrentState.Mouse.Position;
+                Vector2 position = parent.CurrentState.Mouse.Position;
 
-                    // Rotate by however far the cursor moved since the last frame, rather than recentering it, so the
-                    // movement is applied exactly once regardless of frame timing.
-                    if (lastParentPosition is Vector2 last)
-                        rotateBy(position - last);
+                switch (inputSource.Value)
+                {
+                    case FPSosuInputSource.Tablet:
+                        // The pen's position is absolute, so it points the camera directly. The parent cursor is left
+                        // alone: a tablet re-asserts its absolute position every report, so overriding it here would
+                        // be undone immediately and the mismatch would show up as the next frame's delta.
+                        applyAbsoluteLook(position, target);
+                        break;
 
-                    lastParentPosition = position;
+                    case FPSosuInputSource.TabletStandard:
+                        // The pen points at a beatmap position, as a tablet does in standard osu!, and the camera
+                        // turns so that position is under the crosshair. The parent cursor is left alone for the
+                        // same reason as above.
+                        applyPlayfieldScaledLook(position);
+                        break;
+
+                    default:
+                        // Rotate by however far the cursor moved since the last frame, rather than recentering it, so
+                        // the movement is applied exactly once regardless of frame timing.
+                        if (lastParentPosition is Vector2 last)
+                            rotateBy(position - last);
+
+                        lastParentPosition = position;
+                        break;
                 }
             }
 

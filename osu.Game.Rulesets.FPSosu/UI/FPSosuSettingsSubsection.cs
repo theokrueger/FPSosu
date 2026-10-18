@@ -63,7 +63,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
                 new SettingsEnumDropdown<FPSosuInputSource>
                 {
                     LabelText = "Input source",
-                    TooltipText = "Which device turns the camera. Mouse reads relative movement. Tablet reads the pen's absolute position, so the pen points the camera directly (requires osu!'s tablet input to be enabled); raise Sensitivity if your tablet's active area does not turn far enough.",
+                    TooltipText = "Which device turns the camera. Mouse reads relative movement. Tablet (mouse sensitivity) points the camera from the pen's absolute position, turning as far per unit of movement as the mouse. Standard tablet style makes the pen point at a beatmap position like a tablet does in standard osu!, so its range follows the playfield span and Sensitivity does not apply. Both tablet modes require osu!'s tablet input to be enabled.",
                     Current = config.GetBindable<FPSosuInputSource>(FPSosuRulesetSetting.InputSource),
                 },
                 new SettingsSlider<float>

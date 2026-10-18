@@ -115,6 +115,19 @@ namespace osu.Game.Rulesets.FPSosu.UI
             camera.AngularLimit = Projector.AngularExtent + new Vector2(overshoot);
         }
 
+        /// <summary>
+        /// Returns the camera angles which bring the point of the beatmap under the given screen-space position to
+        /// the crosshair.
+        /// </summary>
+        /// <param name="screenSpacePosition">A position in screen space.</param>
+        /// <remarks>
+        /// This is what absolute input which scales with the playfield uses: the pen points at a beatmap position and
+        /// the camera turns so that position is under the crosshair. The playfield's own transform does not move with
+        /// the camera (only the hit objects inside it do), so converting through it is stable from frame to frame.
+        /// </remarks>
+        public Vector2 ScreenToPlayfieldAngles(Vector2 screenSpacePosition)
+            => Projector.PlayfieldToCameraAngles(ToLocalSpace(screenSpacePosition));
+
         protected override void Update()
         {
             base.Update();

@@ -51,13 +51,17 @@ Because a smaller playfield span packs objects closer together, object size also
 
 In **Mouse** mode it reads the frame-to-frame movement of the parent cursor. Measuring consecutive-position deltas (rather than recentering the cursor and reading its offset) applies every movement exactly once regardless of frame timing. The parent cursor is pulled back to the crosshair only once it drifts beyond a margin, so it never runs into the window edge and stops reporting movement.
 
-In **Tablet** mode the pen's *absolute* position points the camera directly, with the pen at the crosshair looking straight ahead. This is what a graphics tablet reports (osu! reads it through OpenTabletDriver and re-asserts it every report), so the relative path cannot serve it: pulling the parent cursor back to the crosshair is immediately undone, and the disagreement shows up as the next frame's enormous delta. Absolute mode therefore never overrides the parent cursor at all. Both modes share one scale (`radiansPerLocalUnit()`), so the same movement turns the camera the same distance either way and the Sensitivity slider keeps its meaning when the source changes; a tablet's total turn range is simply its active area scaled by sensitivity.
+In **Tablet (mouse sensitivity)** mode the pen's *absolute* position points the camera directly, with the pen at the crosshair looking straight ahead, turned at the same rate per unit of movement as the mouse. This is what a graphics tablet reports (osu! reads it through OpenTabletDriver and re-asserts it every report), so the relative path cannot serve it: pulling the parent cursor back to the crosshair is immediately undone, and the disagreement shows up as the next frame's enormous delta. Absolute modes therefore never override the parent cursor at all.
+
+In **Standard tablet style** mode the pen is mapped onto the beatmap instead: `FPSosuPlayfield.ScreenToPlayfieldAngles` converts the pen's screen position into a playfield position and then into camera angles, so the pen points at a beatmap position exactly as it does in standard osu!. The playfield's own transform does not move with the camera (only the hit objects inside it do), so the conversion is stable from frame to frame. Sensitivity deliberately does not apply here, because the playfield span already defines how far the pen must travel to cross the beatmap.
+
+The mouse and **Tablet (mouse sensitivity)** modes share one scale (`radiansPerLocalUnit()`), so the same movement turns the camera the same distance either way and the Sensitivity slider keeps its meaning when the source changes; a tablet's total turn range is simply its active area scaled by sensitivity. Standard tablet style derives its range from the playfield span instead.
 
 The manager's own cursor is always pinned to the crosshair, which is where hits are registered.
 
 Camera control is gated on `UseParentInput`, which the drawable ruleset clears while paused and a replay handler clears during replays. While paused this leaves the cursor free to navigate the pause menu, and forgetting the last cursor position means the movement made over the menu is not applied as a jump on resume. The last cursor position is also forgotten whenever the input source changes, so switching devices does not turn the camera by the distance between them. Only the input manager hosting the playfield drives the camera; the ruleset creates a second input manager for the resume overlay, and that one has camera control disabled so overlay cursors stay free.
 
-Smooth mouse control relies on **relative (raw) mouse input** being enabled in osu!'s input settings; tablet mode relies on osu!'s tablet input being enabled.
+Smooth mouse control relies on **relative (raw) mouse input** being enabled in osu!'s input settings; both tablet modes rely on osu!'s tablet input being enabled.
 
 Two deliberate deviations from osu!: the playfield's storyboard alignment shift is disabled (the crosshair must be at the true view centre), and the resume overlay is `DelayedResumeOverlay`, because the standard one requires clicking a specific position which is impossible with a locked cursor.
 
@@ -65,10 +69,10 @@ Two deliberate deviations from osu!: the playfield's storyboard alignment shift 
 
 ```bash
 dotnet build   # must be 0 errors, 0 warnings
-dotnet test    # 57 tests
+dotnet test    # 59 tests
 ```
 
-Tests cover the projection invariants (round-trips, span/FOV independence, clamping), the camera, and real gameplay through `PlayerTestScene`. The key end-to-end check is `TestSceneFPSosuAutoplay`: autoplay must build combo with **zero misses** while the camera rotates, which proves the projection preserved playability. `TestSceneFPSosuPlayer` also covers the input source: tablet mode must point the camera from the pen's absolute position without overriding the cursor, and must turn the camera as far per unit of movement as the mouse does.
+Tests cover the projection invariants (round-trips, span/FOV independence, clamping), the camera, and real gameplay through `PlayerTestScene`. The key end-to-end check is `TestSceneFPSosuAutoplay`: autoplay must build combo with **zero misses** while the camera rotates, which proves the projection preserved playability. `TestSceneFPSosuPlayer` also covers the input sources: tablet modes must point the camera from the pen's absolute position without overriding the cursor, **Tablet (mouse sensitivity)** must turn as far per unit of movement as the mouse, and **Standard tablet style** must land the pen on a beatmap position regardless of the Sensitivity slider.
 
 `TestFPSosuRulesetRegistration` reproduces the registration bug described below against a real ruleset store, and `TestFPSosuRulesetSurface` fails if the registered ruleset stops forwarding an osu! override (which is what makes osu! updates safe).
 

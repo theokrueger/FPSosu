@@ -133,10 +133,17 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
         Mouse,
 
         /// <summary>
-        /// The absolute position of a tablet pen, which points the camera directly.
+        /// The absolute position of a tablet pen, turned at the same rate per unit of movement as the mouse.
         /// </summary>
-        [Description("Tablet (absolute)")]
+        [Description("Tablet (mouse sensitivity)")]
         Tablet,
+
+        /// <summary>
+        /// The absolute position of a tablet pen, mapped onto the playfield so the pen points at a beatmap position,
+        /// as a tablet does in standard osu!.
+        /// </summary>
+        [Description("Standard tablet style")]
+        TabletStandard,
     }
 
     /// <summary>

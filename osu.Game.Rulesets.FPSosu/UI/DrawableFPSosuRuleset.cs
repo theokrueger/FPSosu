@@ -68,8 +68,10 @@ namespace osu.Game.Rulesets.FPSosu.UI
         {
             base.LoadComplete();
 
-            // The playfield exists by now, so the input manager can be told where to pin the cursor.
+            // The playfield exists by now, so the input manager can be told where to pin the cursor, and how to map
+            // a pen position onto the beatmap for standard-style tablet input.
             KeyBindingInputManager.LockPosition = crosshairScreenSpacePosition;
+            KeyBindingInputManager.ScreenToPlayfieldAngles = Playfield.ScreenToPlayfieldAngles;
         }
 
         protected override Playfield CreatePlayfield() => new FPSosuPlayfield();

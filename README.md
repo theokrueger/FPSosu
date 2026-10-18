@@ -20,7 +20,7 @@ The mouse rotates the camera while the crosshair stays pinned to the centre of t
 - Adjust playfield span frequently
 - **Select appropriate input method in settings**
 
-#Settings
+# Settings
 
 All settings live under *Options → Rulesets → FPSosu* and apply live.
 

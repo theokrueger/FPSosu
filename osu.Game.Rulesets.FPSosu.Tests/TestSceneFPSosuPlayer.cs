@@ -266,6 +266,66 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         }
 
         /// <summary>
+        /// Standard tablet style is geometric: the pen points at a position on the beatmap and the camera turns so
+        /// that position is under the crosshair, exactly as a tablet behaves in standard osu!.
+        /// </summary>
+        [Test]
+        public void TestStandardTabletPointsAtTheBeatmap()
+        {
+            AddUntilStep("wait for objects", () => aliveObjects().Any());
+
+            var beatmapPoint = FPSosuProjector.PLAYFIELD_CENTRE + new Vector2(120, -80);
+            Vector2 expected = default;
+            Vector2 penPosition = default;
+
+            AddStep("select standard tablet input", () => setInputSource(FPSosuInputSource.TabletStandard));
+            AddStep("point the pen at a beatmap position", () =>
+            {
+                expected = playfield.Projector.PlayfieldToCameraAngles(beatmapPoint);
+                InputManager.MoveMouseTo(penPosition = playfield.ToScreenSpace(beatmapPoint));
+            });
+
+            AddUntilStep("camera aimed at the pen's beatmap point", () =>
+                Precision.AlmostEquals(camera.Yaw, expected.X, 1e-3f) && Precision.AlmostEquals(camera.Pitch, expected.Y, 1e-3f));
+
+            AddAssert("pen position not overridden", () => Vector2.Distance(InputManager.CurrentState.Mouse.Position, penPosition) < 1f);
+
+            AddStep("restore mouse input", () => setInputSource(FPSosuInputSource.Mouse));
+        }
+
+        /// <summary>
+        /// Standard tablet style is defined by the playfield rather than by a movement scale, so the Sensitivity
+        /// slider must not change where the pen points.
+        /// </summary>
+        [Test]
+        public void TestStandardTabletIgnoresSensitivity()
+        {
+            AddUntilStep("wait for objects", () => aliveObjects().Any());
+
+            float yawBefore = 0;
+            float pitchBefore = 0;
+
+            AddStep("select standard tablet input", () => setInputSource(FPSosuInputSource.TabletStandard));
+            AddStep("point the pen at a beatmap position", () => InputManager.MoveMouseTo(playfield.ToScreenSpace(FPSosuProjector.PLAYFIELD_CENTRE + new Vector2(120, -80))));
+            AddUntilStep("camera aimed", () => camera.Yaw != 0);
+            AddStep("record angles", () =>
+            {
+                yawBefore = camera.Yaw;
+                pitchBefore = camera.Pitch;
+            });
+
+            AddStep("raise sensitivity", () => setSensitivity(5));
+            AddWaitStep("let it settle", 5);
+            AddAssert("mapping unchanged", () => Precision.AlmostEquals(camera.Yaw, yawBefore, 1e-4f) && Precision.AlmostEquals(camera.Pitch, pitchBefore, 1e-4f));
+
+            AddStep("restore sensitivity and mouse input", () =>
+            {
+                setSensitivity(1);
+                setInputSource(FPSosuInputSource.Mouse);
+            });
+        }
+
+        /// <summary>
         /// Switching sources must not turn the camera by the distance between where the old and new devices happen
         /// to be. The accumulated mouse position is forgotten instead, so the new source starts from where it is.
         /// </summary>
@@ -296,6 +356,9 @@ namespace osu.Game.Rulesets.FPSosu.Tests
 
         private void setInputSource(FPSosuInputSource source)
             => fpsConfig.GetBindable<FPSosuInputSource>(FPSosuRulesetSetting.InputSource).Value = source;
+
+        private void setSensitivity(float value)
+            => fpsConfig.GetBindable<float>(FPSosuRulesetSetting.Sensitivity).Value = value;
 
         private IEnumerable<DrawableOsuHitObject> aliveObjects()
             => playfield.HitObjectContainer.AliveObjects.OfType<DrawableOsuHitObject>();
