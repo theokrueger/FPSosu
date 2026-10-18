@@ -154,6 +154,16 @@ namespace osu.Game.Rulesets.FPSosu.Projection
                 : new Vector2(halfSpan, MathF.Atan2(PLAYFIELD_CENTRE.Y, distance));
 
         /// <summary>
+        /// The scale of an object at the centre of the playfield, i.e. directly under the crosshair at rest.
+        /// </summary>
+        /// <remarks>
+        /// The spinner sits at the playfield centre, so this is the size it is drawn at. It is independent of the
+        /// camera angle: using the perspective scale instead would grow the spinner as the camera turns it off-axis,
+        /// which changes how fast the same rotation reads.
+        /// </remarks>
+        public float CentreScale => focalLength / default_focal_length * spanObjectScale;
+
+        /// <summary>
         /// Maps a position on the flat osu! playfield into the 3D world.
         /// </summary>
         /// <param name="playfieldPosition">A position in osu! playfield coordinates.</param>

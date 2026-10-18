@@ -25,8 +25,9 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// <remarks>
     /// Hit objects keep their real osu! playfield positions; only their drawable position and scale are rewritten
     /// each frame. Everything downstream of the drawable therefore keeps working untouched: hit detection follows
-    /// the moved hit receptors, slider tracking and spinner rotation read the (centred) cursor against the moved
-    /// slider body, and judgements, scoring and star rating are inherited wholesale from osu!.
+    /// the moved hit receptors, slider tracking reads the (centred) cursor against the moved slider body, spinner
+    /// rotation is driven by camera movement instead of the cursor, and judgements, scoring and star rating are
+    /// inherited wholesale from osu!.
     /// </remarks>
     public partial class FPSosuPlayfield : OsuPlayfield
     {
@@ -166,15 +167,13 @@ namespace osu.Game.Rulesets.FPSosu.UI
                 return;
             }
 
-            // Spinners are spun in place at the centre of the view rather than aimed at, so keep them centred while
-            // the world turns around them. Their rotation is driven by camera movement in updateSpinners.
+            // Spinners are spun by turning the camera rather than by moving the cursor, so their own input handling
+            // is disabled and updateSpinners drives their rotation instead. They are otherwise projected like any
+            // other object, so they sit on the beatmap and move with the world as the camera turns.
             if (osuObject is DrawableSpinner spinner)
             {
-                // Take over the spinner's rotation: the cursor never moves, so its own cursor-driven tracking could
-                // never accumulate any. updateSpinners drives it from camera movement instead.
                 spinner.HandleUserInput = false;
-                spinner.Alpha = 1;
-                spinner.Position = FPSosuProjector.PLAYFIELD_CENTRE;
+                projectSpinner(spinner, yaw, pitch);
                 return;
             }
 
@@ -190,6 +189,40 @@ namespace osu.Game.Rulesets.FPSosu.UI
             osuObject.Alpha = 1;
             osuObject.Position = position;
             osuObject.Scale = new Vector2(scale);
+        }
+
+        /// <summary>
+        /// Projects a spinner, keeping it on screen and never culling it.
+        /// </summary>
+        /// <remarks>
+        /// A spinner is the focus of attention while it is active, and spinning it means turning the camera, which
+        /// pushes it away from the centre of the view. It is therefore exempt from the culling every other object
+        /// gets: it is always drawn, its projected position is clamped to the playfield, and once it passes behind
+        /// the camera it is left where it was last drawn. A spinner that vanishes mid-spin cannot be completed.
+        ///
+        /// Its size comes from the playfield rather than from the perspective, so it stays a fixed size as the camera
+        /// turns it away from the centre and the rotation reads the same wherever it is drawn.
+        /// </remarks>
+        private void projectSpinner(DrawableSpinner spinner, float yaw, float pitch)
+        {
+            if (!spinner.AlwaysPresent)
+                spinner.AlwaysPresent = true;
+
+            spinner.Alpha = 1;
+            spinner.Scale = new Vector2(Projector.CentreScale);
+
+            var world = Projector.PlayfieldToWorld(spinner.HitObject.StackedPosition);
+
+            if (!Projector.WorldToPlayfield(world, yaw, pitch, out Vector2 position, out _))
+            {
+                // Behind the camera. Hold it where it was last drawn rather than hiding it, so it can still be spun.
+                return;
+            }
+
+            // Keep the spinner on the playfield so turning far cannot push it out of view entirely.
+            spinner.Position = new Vector2(
+                Math.Clamp(position.X, 0, OsuPlayfield.BASE_SIZE.X),
+                Math.Clamp(position.Y, 0, OsuPlayfield.BASE_SIZE.Y));
         }
 
         /// <summary>
@@ -300,15 +333,26 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// The cursor is pinned to the crosshair, so the standard "move the cursor in circles" action is not
         /// possible. Rotating the camera takes its place. This mirrors how the Spun Out mod drives spinners, except
         /// the rotation comes from camera movement instead of a fixed speed, and no button needs to be held.
-        /// <see cref="project"/> disables the spinner's own cursor tracking so this is the only source of rotation.
+        /// </remarks>
+        /// <remarks>
+        /// The spinner's own input machinery is not used at all: <see cref="project"/> clears
+        /// <see cref="DrawableHitObject.HandleUserInput"/>, which is what makes a hit object stop propagating input
+        /// to its subtree, so the rotation tracker never sees the cursor. Rotation is added straight to the tracker,
+        /// and the spinner is marked as started here rather than by the tracker's own tracking.
         /// </remarks>
         private void spinSpinner(DrawableSpinner spinner, float rotationDelta)
         {
             var tracker = spinner.RotationTracker;
-            tracker.Tracking = tracker.IsSpinnableTime && !spinner.Result.HasResult;
 
-            if (tracker.Tracking)
-                tracker.AddRotation(rotationDelta);
+            tracker.Tracking = false;
+
+            if (!tracker.IsSpinnableTime || spinner.Result.HasResult)
+                return;
+
+            if (!spinner.Result.TimeStarted.HasValue)
+                spinner.Result.TimeStarted = spinner.Time.Current;
+
+            tracker.AddRotation(rotationDelta);
         }
 
         /// <summary>

@@ -3,8 +3,10 @@
 
 using System.Collections.Generic;
 using NUnit.Framework;
+using osu.Framework.Allocation;
 using osu.Framework.Utils;
 using osu.Game.Beatmaps;
+using osu.Game.Rulesets.FPSosu.Configuration;
 using osu.Game.Rulesets.FPSosu.Projection;
 using osu.Game.Rulesets.FPSosu.UI;
 using osu.Game.Rulesets.Objects;
@@ -64,21 +66,98 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         }
 
         /// <summary>
-        /// While a spinner is active it stays centred in the view, because it is spun in place rather than aimed at.
+        /// The spinner sits at the centre of the playfield, so it must move with the world as the camera turns
+        /// rather than staying pinned to the screen like a flat overlay.
         /// </summary>
         [Test]
-        public void TestSpinnerStaysCentred()
+        public void TestSpinnerMovesWithPlayfield()
         {
             DrawableSpinner? spinner = null;
 
             AddUntilStep("wait for spinner", () => (spinner = findSpinner()) != null);
             AddUntilStep("wait for spinnable", () => spinner?.RotationTracker.IsSpinnableTime == true);
 
+            AddAssert("spinner sits at the projected playfield centre", () =>
+                Precision.AlmostEquals(spinner!.Position, projectedPositionOf(spinner.HitObject.StackedPosition), 1f));
+
             AddStep("turn camera", () => moveMouseBy(new Vector2(300, 0)));
             AddWaitStep("let it settle", 5);
 
-            AddAssert("spinner held at playfield centre", () => Precision.AlmostEquals(spinner?.Position ?? Vector2.Zero, FPSosuProjector.PLAYFIELD_CENTRE, 1f));
+            AddAssert("spinner moved with the world", () =>
+                Precision.AlmostEquals(spinner!.Position, projectedPositionOf(spinner.HitObject.StackedPosition), 1f));
+            AddAssert("spinner left the centre of the view", () => Vector2.Distance(spinner!.Position, FPSosuProjector.PLAYFIELD_CENTRE) > 1f);
         }
+
+        /// <summary>
+        /// The spinner is a large object, so it must be sized from the playfield (field of view and span) rather than
+        /// keeping its natural playfield-filling size. Its size must also not change as the camera turns it away from
+        /// the centre, otherwise the same rotation reads as faster off to the side.
+        /// </summary>
+        [Test]
+        public void TestSpinnerScalesWithProjection()
+        {
+            DrawableSpinner? spinner = null;
+
+            AddUntilStep("wait for spinner", () => (spinner = findSpinner()) != null);
+            AddUntilStep("wait for spinnable", () => spinner?.RotationTracker.IsSpinnableTime == true);
+
+            AddAssert("spinner sized from the playfield", () =>
+                Precision.AlmostEquals(spinner!.Scale.X, playfield.Projector.CentreScale, 1e-3f));
+
+            AddStep("turn the camera", () => moveMouseBy(new Vector2(300, 0)));
+            AddWaitStep("let it settle", 5);
+            AddAssert("size unchanged by turning", () =>
+                Precision.AlmostEquals(spinner!.Scale.X, playfield.Projector.CentreScale, 1e-3f));
+
+            AddStep("shrink the playfield span", () => setPlayfieldSpan(30));
+            AddWaitStep("let the projection rebuild", 5);
+
+            AddAssert("spinner still sized from the playfield", () =>
+                Precision.AlmostEquals(spinner!.Scale.X, playfield.Projector.CentreScale, 1e-3f));
+            AddAssert("spinner shrank with the span", () => spinner!.Scale.X < 0.5f);
+
+            AddStep("restore the playfield span", () => setPlayfieldSpan(FPSosuProjector.DEFAULT_PLAYFIELD_SPAN));
+        }
+
+        /// <summary>
+        /// Turning the camera to spin a spinner pushes it away from the centre of the view, and turning far enough
+        /// puts it behind the camera. It must stay drawn and on the playfield throughout, because a spinner that
+        /// vanishes mid-spin cannot be completed.
+        /// </summary>
+        [Test]
+        public void TestSpinnerStaysVisibleWhileSpinning()
+        {
+            DrawableSpinner? spinner = null;
+            int direction = 1;
+
+            AddUntilStep("wait for spinner", () => (spinner = findSpinner()) != null);
+            AddUntilStep("wait for spinnable", () => spinner?.RotationTracker.IsSpinnableTime == true);
+
+            AddRepeatStep("sweep the camera to its limits", () =>
+            {
+                direction = -direction;
+                moveMouseBy(new Vector2(4000 * direction, 0));
+            }, 6);
+
+            AddAssert("spinner not culled", () => spinner!.Alpha > 0.99f && spinner.AlwaysPresent);
+            AddAssert("spinner held on the playfield", () =>
+                spinner!.Position.X >= 0 && spinner.Position.X <= OsuPlayfield.BASE_SIZE.X
+                && spinner.Position.Y >= 0 && spinner.Position.Y <= OsuPlayfield.BASE_SIZE.Y);
+            AddAssert("spinner still accumulated rotation", () => spinner!.Result.TotalRotation > 360);
+        }
+
+        private FPSosuCamera camera => drawableRuleset.Camera;
+
+        private Vector2 projectedPositionOf(Vector2 playfieldPosition)
+        {
+            Assert.That(playfield.Projector.WorldToPlayfield(playfield.Projector.PlayfieldToWorld(playfieldPosition), camera.Yaw, camera.Pitch, out var position, out _), Is.True);
+            return position;
+        }
+
+        private FPSosuConfigManager fpsConfig => drawableRuleset.Dependencies.Get<FPSosuConfigManager>();
+
+        private void setPlayfieldSpan(float value)
+            => fpsConfig.GetBindable<float>(FPSosuRulesetSetting.PlayfieldSpan).Value = value;
 
         private DrawableSpinner? findSpinner()
         {

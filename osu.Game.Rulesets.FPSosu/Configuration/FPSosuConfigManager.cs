@@ -32,7 +32,7 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
             SetDefault(FPSosuRulesetSetting.InvertPitch, false);
             SetDefault(FPSosuRulesetSetting.ShowCrosshair, true);
             SetDefault(FPSosuRulesetSetting.CrosshairGap, 3f, 0f, 20f, 0.1f);
-            SetDefault(FPSosuRulesetSetting.CrosshairLineLength, 10f, 2f, 30f, 0.1f);
+            SetDefault(FPSosuRulesetSetting.CrosshairLineLength, 10f, 0.1f, 30f, 0.1f);
             SetDefault(FPSosuRulesetSetting.CrosshairThickness, 2f, 0.5f, 10f, 0.1f);
             SetDefault(FPSosuRulesetSetting.CrosshairOpacity, 1f, 0f, 1f, 0.01f);
             SetDefault(FPSosuRulesetSetting.CrosshairCenterDot, true);

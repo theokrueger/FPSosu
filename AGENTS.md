@@ -45,6 +45,8 @@ In `Dome` mode the playfield offset is treated as arc length on a sphere, so equ
 
 Because a smaller playfield span packs objects closer together, object size also scales with the span, keeping circles proportional to the gaps between them. Sliders are an extended shape, so they are projected by their head and tail rather than a single point; this keeps the whole body following the perspective instead of the far end swimming as the camera turns.
 
+Spinners are projected like any other object, so they sit at the centre of the beatmap and move with the world as the camera turns. They are sized from the playfield (`FPSosuProjector.CentreScale`, i.e. field of view and span) rather than from the perspective scale, because a spinner sits at a fixed distance at the playfield centre: the perspective scale would grow it as the camera turned it off-axis, which changes how fast the same rotation reads. Their own input is bypassed entirely: `project` clears `HandleUserInput`, which is what makes a hit object stop propagating input to its subtree, so the rotation tracker never sees the cursor; rotation is added straight to the tracker from camera movement, and the spinner is marked as started directly rather than by the tracker's own tracking. Spinners are also exempt from culling, because turning to spin pushes them off the playfield and eventually behind the camera: `AlwaysPresent` is set, the projected position is clamped to the playfield, and a spinner that passes behind the camera is held where it was last drawn. A spinner that vanishes mid-spin cannot be completed.
+
 ### Input Handling
 
 `FPSosuInputManager` turns movement of the parent input manager's cursor into camera rotation. Which device supplies it is chosen by the **Input source** setting (`FPSosuRulesetSetting.InputSource`).
@@ -69,7 +71,7 @@ Two deliberate deviations from osu!: the playfield's storyboard alignment shift 
 
 ```bash
 dotnet build   # must be 0 errors, 0 warnings
-dotnet test    # 59 tests
+dotnet test    # 61 tests
 ```
 
 Tests cover the projection invariants (round-trips, span/FOV independence, clamping), the camera, and real gameplay through `PlayerTestScene`. The key end-to-end check is `TestSceneFPSosuAutoplay`: autoplay must build combo with **zero misses** while the camera rotates, which proves the projection preserved playability. `TestSceneFPSosuPlayer` also covers the input sources: tablet modes must point the camera from the pen's absolute position without overriding the cursor, **Tablet (mouse sensitivity)** must turn as far per unit of movement as the mouse, and **Standard tablet style** must land the pen on a beatmap position regardless of the Sensitivity slider.
@@ -109,4 +111,4 @@ Consequences to keep in mind when editing:
 - Every member `OsuRuleset` overrides must be declared on `FPSosuRuleset` too, otherwise the game's UI keeps asking the registered ruleset and gets `Ruleset`'s much emptier default (no star ratings, wrong score breakdown, no editor). `TestFPSosuRulesetSurface` enforces this, so a new osu! override shows up as a failing test rather than as a missing feature.
 - `FPSosuOsuRuleset` reports the same `ShortName`, `Description` and online ID as `FPSosuRuleset`, so gameplay is still attributed to FPSosu rather than to osu!.
 
-This affects any custom ruleset derived from osu!, osu!taiko, osu!catch or osu!mania, not just this one - the underlying store behaviour is an upstream bug, documented in [`docs/upstream-legacy-ruleset-registration.md`](docs/upstream-legacy-ruleset-registration.md) together with the reproduction and a proposed fix.
+This affects any custom ruleset derived from osu!, osu!taiko, osu!catch or osu!mania, not just this one - the underlying store behaviour is an upstream bug.
