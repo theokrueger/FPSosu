@@ -3,7 +3,6 @@
 
 using System.Collections.Generic;
 using osu.Framework.Allocation;
-using osu.Framework.Graphics;
 using osu.Framework.Input;
 using osu.Game.Beatmaps;
 using osu.Game.Input.Handlers;
@@ -12,7 +11,6 @@ using osu.Game.Rulesets.FPSosu.Configuration;
 using osu.Game.Rulesets.FPSosu.Projection;
 using osu.Game.Rulesets.FPSosu.Replays;
 using osu.Game.Rulesets.Mods;
-using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Rulesets.Osu.UI;
 using osu.Game.Rulesets.UI;
 using osu.Game.Scoring;
@@ -102,7 +100,8 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// The standard osu! playfield is nudged downwards to line up with historical storyboards. Here the centre of
         /// the playfield is where the crosshair lives, so it must sit at the true centre of the view instead.
         /// </summary>
-        public override PlayfieldAdjustmentContainer CreatePlayfieldAdjustmentContainer() => new OsuPlayfieldAdjustmentContainer { AlignWithStoryboard = false };
+        public override PlayfieldAdjustmentContainer CreatePlayfieldAdjustmentContainer()
+            => new OsuPlayfieldAdjustmentContainer { AlignWithStoryboard = false };
 
         protected override ReplayRecorder CreateReplayRecorder(Score score) => new FPSosuReplayRecorder(score, Camera, () => Playfield.Projector);
 

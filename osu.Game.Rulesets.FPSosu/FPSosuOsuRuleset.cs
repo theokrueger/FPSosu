@@ -26,19 +26,13 @@ namespace osu.Game.Rulesets.FPSosu
     /// The osu!-derived half of the ruleset: everything the game needs while a beatmap is being played.
     /// </summary>
     /// <remarks>
-    /// This is deliberately <b>not</b> the type registered with the game - see the remarks on <see cref="FPSosuRuleset"/>
-    /// for why. Because it is never instantiated by the ruleset store, its <see cref="ILegacyRuleset.LegacyID"/> never
-    /// reaches the ruleset database. It exists so that gameplay keeps inheriting every osu! behaviour (hit objects,
-    /// scoring, health, mods, difficulty, skinning, replays, judgement) instead of reimplementing them.
-    ///
-    /// It reports the same identity as <see cref="FPSosuRuleset"/>, so anything reading
-    /// <see cref="DrawableRuleset.Ruleset"/> during gameplay (the HUD, scoring, beatmap difficulty caching,
-    /// skinning) still sees FPSosu's name and online ID rather than osu!'s.
+    /// This is deliberately <b>not</b> the registered type - see <see cref="FPSosuRuleset"/>. It exists so gameplay
+    /// inherits every osu! behaviour (hit objects, scoring, health, mods, difficulty, skinning, replays, judgement)
+    /// instead of reimplementing them, and reports FPSosu's identity so scores and beatmaps are not filed under osu!.
     ///
     /// <para>
-    /// It must stay non-public: the ruleset store registers the first <i>public</i> <see cref="Ruleset"/> subclass it
-    /// finds in the assembly, and registering this type instead would restore the legacy-row bug described on
-    /// <see cref="FPSosuRuleset"/>.
+    /// It must stay non-public: the ruleset store registers the first <i>public</i> <see cref="Ruleset"/> subclass in
+    /// the assembly, and registering this one would restore the legacy-row bug.
     /// </para>
     /// </remarks>
     internal partial class FPSosuOsuRuleset : OsuRuleset, ILegacyRuleset
@@ -95,7 +89,12 @@ namespace osu.Game.Rulesets.FPSosu
                     if (kept.Length == 0)
                         continue;
 
-                    yield return kept.Length == multi.Mods.Length ? multi : kept.Length == 1 ? kept[0] : new MultiMod(kept);
+                    if (kept.Length == multi.Mods.Length)
+                        yield return multi;
+                    else if (kept.Length == 1)
+                        yield return kept[0];
+                    else
+                        yield return new MultiMod(kept);
                 }
                 else if (!unsupported_mods.Contains(mod.GetType()))
                 {
@@ -119,8 +118,8 @@ namespace osu.Game.Rulesets.FPSosu
             {
                 Size = new Vector2(20);
 
-                InternalChildren = new Drawable[]
-                {
+                InternalChildren =
+                [
                     new Circle
                     {
                         RelativeSizeAxes = Axes.Both,
@@ -133,7 +132,7 @@ namespace osu.Game.Rulesets.FPSosu
                     new Box { Anchor = Anchor.Centre, Origin = Anchor.Centre, Size = new Vector2(6, 2), Position = new Vector2(-7, 0), Colour = Color4.White },
                     new Box { Anchor = Anchor.Centre, Origin = Anchor.Centre, Size = new Vector2(6, 2), Position = new Vector2(7, 0), Colour = Color4.White },
                     new Box { Anchor = Anchor.Centre, Origin = Anchor.Centre, Size = new Vector2(2), Colour = Color4.White },
-                };
+                ];
             }
         }
     }

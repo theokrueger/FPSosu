@@ -48,6 +48,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             Vector2 positionBefore = default;
 
             AddUntilStep("wait for judgement", () => (judgement = findJudgement()) is not null);
+            AddUntilStep("wait for judgement visible", () => judgement!.Alpha > 0);
             AddStep("record position", () => positionBefore = judgement!.Position);
 
             AddStep("turn camera", () => InputManager.MoveMouseTo(InputManager.CurrentState.Mouse.Position + new Vector2(300, 0)));

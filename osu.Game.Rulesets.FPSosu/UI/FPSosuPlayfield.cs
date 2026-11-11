@@ -22,11 +22,10 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// first-person camera.
     /// </summary>
     /// <remarks>
-    /// Hit objects keep their real osu! playfield positions; only their drawable position and scale are rewritten
-    /// each frame. Everything downstream of the drawable therefore keeps working untouched: hit detection follows
-    /// the moved hit receptors, slider tracking reads the (centred) cursor against the moved slider body, spinner
-    /// rotation is driven by camera movement instead of the cursor, and judgements, scoring and star rating are
-    /// inherited wholesale from osu!.
+    /// Hit objects keep their real osu! playfield positions; only their drawable position and scale (and, for
+    /// sliders, rotation) are rewritten each frame. Everything downstream keeps working untouched: hit detection
+    /// follows the moved receptors, slider tracking reads the centred cursor against the moved body, spinner
+    /// rotation comes from camera movement, and judgements, scoring and star rating are inherited from osu!.
     /// </remarks>
     public partial class FPSosuPlayfield : OsuPlayfield
     {
@@ -42,8 +41,8 @@ namespace osu.Game.Rulesets.FPSosu.UI
         private readonly BindableFloat crosshairOvershoot = new(45);
 
         /// <summary>
-        /// The projection currently in use. Rebuilt only when a setting changes, so the per-frame path stays
-        /// allocation free.
+        /// The projection currently in use. Rebuilt only when a setting changes, so projection calls stay allocation
+        /// free.
         /// </summary>
         public FPSosuProjector Projector { get; private set; }
 
@@ -73,6 +72,12 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// </summary>
         private const float spinner_rotation_per_camera_radian = 300f;
 
+        /// <summary>
+        /// Where a drawable is parked while it is behind the camera. Position is used rather than alpha so that
+        /// mod-driven alpha animations (Hidden) and popup fades keep control of visibility.
+        /// </summary>
+        private static readonly Vector2 culled_position = new Vector2(-10000);
+
         [BackgroundDependencyLoader]
         private void load(FPSosuConfigManager? config)
         {
@@ -97,9 +102,6 @@ namespace osu.Game.Rulesets.FPSosu.UI
             base.LoadComplete();
 
             JudgementLayer = InternalChildren.OfType<JudgementContainer<DrawableOsuJudgement>>().FirstOrDefault();
-
-            lastSpinnerYaw = camera.Yaw;
-            lastSpinnerPitch = camera.Pitch;
         }
 
         private void updateProjector()
@@ -115,7 +117,11 @@ namespace osu.Game.Rulesets.FPSosu.UI
         private void updateAngularLimit()
         {
             float overshoot = float.DegreesToRadians(crosshairOvershoot.Value);
-            camera.AngularLimit = Projector.AngularExtent + new Vector2(overshoot);
+            Vector2 limit = Projector.AngularExtent + new Vector2(overshoot);
+            Vector2 max = Projector.MaxAngularLimit;
+
+            // Never let the camera leave the range the projection can invert, or replays cannot record the aim.
+            camera.AngularLimit = new Vector2(Math.Min(limit.X, max.X), Math.Min(limit.Y, max.Y));
             camera.Clamp();
 
             // Clamping can move the camera abruptly; do not turn that into a burst of spinner rotation.
@@ -187,12 +193,12 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             if (!Projector.WorldToPlayfield(world, yaw, pitch, out Vector2 position, out float scale))
             {
-                // Behind the camera. Hide it rather than draw a mirrored ghost in front of the player.
-                osuObject.Alpha = 0;
+                // Behind the camera. Park it out of view rather than fading it, so alpha animations keep working.
+                osuObject.Position = culled_position;
+                osuObject.Scale = Vector2.Zero;
                 return;
             }
 
-            osuObject.Alpha = 1;
             osuObject.Position = position;
             osuObject.Scale = new Vector2(scale);
         }
@@ -213,7 +219,6 @@ namespace osu.Game.Rulesets.FPSosu.UI
         {
             spinner.AlwaysPresent = true;
 
-            spinner.Alpha = 1;
             spinner.Scale = new Vector2(Projector.CentreScale);
 
             var world = Projector.PlayfieldToWorld(spinner.HitObject.StackedPosition);
@@ -247,24 +252,37 @@ namespace osu.Game.Rulesets.FPSosu.UI
                     continue;
 
                 // Sliders judge at their tail, matching where osu! places the popup; everything else at its position.
-                Vector2 playfieldPosition = hitObject switch
+                Vector2 playfieldPosition;
+                float objectScale = 1;
+
+                switch (hitObject)
                 {
-                    OsuHitObject osuObject => osuObject.StackedEndPosition,
-                    IHasPosition positioned => positioned.Position,
-                    _ => FPSosuProjector.PLAYFIELD_CENTRE,
-                };
+                    case OsuHitObject osuObject:
+                        playfieldPosition = osuObject.StackedEndPosition;
+                        objectScale = osuObject.Scale;
+                        break;
+
+                    case IHasPosition positioned:
+                        playfieldPosition = positioned.Position;
+                        break;
+
+                    default:
+                        playfieldPosition = FPSosuProjector.PLAYFIELD_CENTRE;
+                        break;
+                }
 
                 var world = Projector.PlayfieldToWorld(playfieldPosition);
 
                 if (!Projector.WorldToPlayfield(world, yaw, pitch, out Vector2 position, out float scale))
                 {
-                    judgement.Alpha = 0;
+                    // Behind the camera. Park it out of view; the popup's own fade controls its alpha.
+                    judgement.Position = culled_position;
+                    judgement.Scale = Vector2.Zero;
                     continue;
                 }
 
-                judgement.Alpha = 1;
                 judgement.Position = position;
-                judgement.Scale = new Vector2(scale * (hitObject is OsuHitObject osuHitObject ? osuHitObject.Scale : 1));
+                judgement.Scale = new Vector2(scale * objectScale);
             }
         }
 
@@ -281,12 +299,11 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
             if (!Projector.WorldToPlayfield(Projector.PlayfieldToWorld(headPlayfield), yaw, pitch, out Vector2 headScreen, out float headScale))
             {
-                // Head is behind the camera; hide the whole slider rather than draw a mirrored ghost.
-                slider.Alpha = 0;
+                // Head is behind the camera; park the whole slider out of view rather than draw a mirrored ghost.
+                slider.Position = culled_position;
+                slider.Scale = Vector2.Zero;
                 return;
             }
-
-            slider.Alpha = 1;
 
             if (Projector.WorldToPlayfield(Projector.PlayfieldToWorld(tailPlayfield), yaw, pitch, out Vector2 tailScreen, out _))
             {

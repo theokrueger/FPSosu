@@ -34,6 +34,19 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         }
 
         /// <summary>
+        /// The osu!-derived ruleset must stay internal: the store registers the first public <see cref="Ruleset"/>
+        /// subclass in the assembly, and registering that one would restore the legacy-row bug.
+        /// </summary>
+        [Test]
+        public void TestOsuEngineRulesetIsNotPublic()
+        {
+            var engine = typeof(FPSosuRuleset).Assembly.GetType("osu.Game.Rulesets.FPSosu.FPSosuOsuRuleset");
+
+            Assert.That(engine, Is.Not.Null, "the osu!-derived ruleset is expected to exist");
+            Assert.That(engine!.IsPublic, Is.False, "the osu!-derived ruleset must stay internal");
+        }
+
+        /// <summary>
         /// Every member <see cref="OsuRuleset"/> overrides must also be overridden here, because gameplay inherits
         /// osu! through <see cref="FPSosuOsuRuleset"/> while everything the game asks the *registered* ruleset keeps
         /// answering osu!'s answer rather than <see cref="Ruleset"/>'s much emptier default.

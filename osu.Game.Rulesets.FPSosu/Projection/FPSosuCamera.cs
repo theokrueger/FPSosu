@@ -29,7 +29,7 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         /// Clamping to the angular extent of the playfield guarantees every hit object stays reachable:
         /// the player can never spin around and lose the beatmap behind them.
         /// </remarks>
-        public Vector2 AngularLimit { get; set; } = new Vector2(MathF.PI / 2);
+        public Vector2 AngularLimit { get; set; } = new(MathF.PI / 2);
 
         /// <summary>
         /// Rotates the camera by an angular delta, in radians, clamping to <see cref="AngularLimit"/>.

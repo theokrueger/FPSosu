@@ -8,7 +8,7 @@ using osuTK;
 namespace osu.Game.Rulesets.FPSosu.Tests
 {
     [TestFixture]
-    public class TestSceneFPSosuCamera
+    public class TestFPSosuCamera
     {
         [Test]
         public void TestStartsLookingAtPlayfieldCentre()
@@ -77,10 +77,10 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         }
 
         /// <summary>
-        /// Tightening the limit must not leave the camera outside it; the next rotation has to bring it back in range.
+        /// Tightening the limit must not leave the camera outside it; clamping brings it back in range.
         /// </summary>
         [Test]
-        public void TestRotationAfterLimitTightensIsClamped()
+        public void TestClampAfterLimitTightens()
         {
             var camera = new FPSosuCamera { AngularLimit = new Vector2(1f) };
 

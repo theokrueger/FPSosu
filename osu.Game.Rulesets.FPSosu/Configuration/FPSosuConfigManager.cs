@@ -127,7 +127,7 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
     public enum FPSosuInputSource
     {
         /// <summary>
-        /// Relative movement of the mouse cursor, accumulated frame to frame.
+        /// Relative movement reported by mouse move events.
         /// </summary>
         [Description("Mouse")]
         Mouse,

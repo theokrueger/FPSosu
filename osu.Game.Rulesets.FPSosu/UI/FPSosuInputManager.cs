@@ -22,29 +22,24 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// to the centre of the playfield.
     /// </summary>
     /// <remarks>
-    /// Buttons and key bindings are inherited unchanged, so clicking still hits whatever the crosshair covers. Only
-    /// positional input is reinterpreted, and which device supplies it is chosen by
-    /// <see cref="FPSosuRulesetSetting.InputSource"/>:
+    /// Buttons and key bindings are inherited unchanged, so clicking hits whatever the crosshair covers. Only
+    /// positional input is reinterpreted; <see cref="FPSosuRulesetSetting.InputSource"/> picks the device:
     /// <list type="bullet">
     /// <item><description>
-    /// <b>Mouse</b> (the default) is relative: each <see cref="MouseMoveEvent"/> rotates the camera by the movement
-    /// it reports. Driving rotation from the event rather than from the polled cursor position is what keeps a
-    /// platform which cannot warp the cursor (Wayland) from feeding a stale position back into the camera.
+    /// <b>Mouse</b> (default) is relative: each <see cref="MouseMoveEvent"/> rotates the camera by the movement it
+    /// reports, so a platform which cannot warp the cursor never feeds a stale position back in.
     /// </description></item>
     /// <item><description>
-    /// <b>Tablet (mouse sensitivity)</b> is absolute: the pen's position on the tablet points the camera, with the
-    /// pen at the crosshair looking straight ahead, turned at the same rate per unit of movement as the mouse.
+    /// <b>Tablet (mouse sensitivity)</b> is absolute and shares the mouse's scale, so the pen points the camera and
+    /// Sensitivity means the same thing either way.
     /// </description></item>
     /// <item><description>
-    /// <b>Standard tablet style</b> is also absolute, but geometric: the pen points at a position on the beatmap and
-    /// the camera turns so that position is under the crosshair, exactly as a tablet behaves in standard osu!. Its
-    /// range therefore follows the playfield span, and Sensitivity does not apply.
+    /// <b>Standard tablet style</b> maps the pen onto the beatmap, exactly as a tablet does in standard osu!. Its
+    /// range follows the playfield span and Sensitivity does not apply.
     /// </description></item>
     /// </list>
-    /// The mouse and <b>Tablet (mouse sensitivity)</b> modes share one scale, so a given movement turns the camera
-    /// just as far either way and the Sensitivity slider keeps its meaning when the source changes. This manager's
-    /// own cursor is always pinned to the crosshair, which is where hits are registered.
-    /// While paused (or during a replay) camera control is inactive, leaving the cursor free for menus.
+    /// The manager's own cursor stays pinned to the crosshair, where hits are registered. While paused or during a
+    /// replay, camera control is inactive so the cursor stays free for menus.
     /// </remarks>
     public partial class FPSosuInputManager : OsuInputManager
     {
@@ -183,13 +178,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
             Vector2 local = screenDeltaToLocal(screenSpaceDelta);
             float scale = radiansPerLocalUnit();
 
-            // Screen Y grows downwards, so moving the mouse up (negative Y) must raise the pitch.
-            float pitchDelta = -local.Y * scale;
-
-            if (invertPitch.Value)
-                pitchDelta = -pitchDelta;
-
-            camera.Rotate(local.X * scale, pitchDelta);
+            camera.Rotate(local.X * scale, pitchFor(-local.Y * scale));
         }
 
         /// <summary>
@@ -206,12 +195,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
             Vector2 local = screenDeltaToLocal(screenSpacePosition - crosshair);
             float scale = radiansPerLocalUnit();
 
-            float pitch = -local.Y * scale;
-
-            if (invertPitch.Value)
-                pitch = -pitch;
-
-            camera.LookAt(local.X * scale, pitch);
+            camera.LookAt(local.X * scale, pitchFor(-local.Y * scale));
         }
 
         /// <summary>
@@ -229,14 +213,13 @@ namespace osu.Game.Rulesets.FPSosu.UI
         {
             Vector2 angles = ScreenToPlayfieldAngles?.Invoke(screenSpacePosition) ?? Vector2.Zero;
 
-            // Screen Y grows downwards, so a pen above the crosshair must raise the pitch.
-            float pitch = angles.Y;
-
-            if (invertPitch.Value)
-                pitch = -pitch;
-
-            camera.LookAt(angles.X, pitch);
+            camera.LookAt(angles.X, pitchFor(angles.Y));
         }
+
+        /// <summary>
+        /// Applies the inverted-look setting to a pitch delta.
+        /// </summary>
+        private float pitchFor(float pitch) => invertPitch.Value ? -pitch : pitch;
 
         /// <summary>
         /// Expresses a screen-space movement in this manager's local units.

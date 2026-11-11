@@ -74,14 +74,17 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
         /// and DPI.
         /// </summary>
         public static float GetCmPer360(this FPSosuSensitivityGame game, float sensitivity, float dpi)
-            => 360 * centimetres_per_inch / (dpi * sensitivity * game.GetYawDegrees());
+            => cmPer360(sensitivity * game.GetYawDegrees(), dpi);
 
         /// <summary>
         /// The physical distance in centimetres the mouse must travel for a full 360° turn in FPSosu at the given
         /// sensitivity and DPI.
         /// </summary>
         public static float GetFPSosuCmPer360(float sensitivity, float dpi)
-            => 360 * centimetres_per_inch / (dpi * sensitivity * FpsosuYawDegrees);
+            => cmPer360(sensitivity * FpsosuYawDegrees, dpi);
+
+        private static float cmPer360(float effectiveYawDegrees, float dpi)
+            => 360 * centimetres_per_inch / (dpi * effectiveYawDegrees);
     }
 
     /// <summary>

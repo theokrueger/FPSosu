@@ -40,13 +40,13 @@ namespace osu.Game.Rulesets.FPSosu.UI
         private const float offscreen_margin = 1000f;
 
         /// <summary>
-        /// Four edges can each be split into at most two visible runs by the camera, so this is enough for any
-        /// orientation without allocating during gameplay.
+        /// Four edges can each be split into at most two visible runs by the camera, so this covers any orientation.
         /// </summary>
         private const int max_paths = 8;
 
         private readonly Path[] paths = new Path[max_paths];
         private readonly List<Vector2> run = new();
+        private int pathCount;
 
         public FPSosuPlayfieldBoundary()
         {
@@ -71,23 +71,23 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// </summary>
         public void Refresh(FPSosuProjector projector, float yaw, float pitch)
         {
-            int used = 0;
+            pathCount = 0;
             run.Clear();
 
             var size = OsuPlayfield.BASE_SIZE;
 
-            addEdge(projector, yaw, pitch, Vector2.Zero, new Vector2(size.X, 0), ref used);
-            addEdge(projector, yaw, pitch, new Vector2(size.X, 0), size, ref used);
-            addEdge(projector, yaw, pitch, size, new Vector2(0, size.Y), ref used);
-            addEdge(projector, yaw, pitch, new Vector2(0, size.Y), Vector2.Zero, ref used);
+            addEdge(projector, yaw, pitch, Vector2.Zero, new Vector2(size.X, 0));
+            addEdge(projector, yaw, pitch, new Vector2(size.X, 0), size);
+            addEdge(projector, yaw, pitch, size, new Vector2(0, size.Y));
+            addEdge(projector, yaw, pitch, new Vector2(0, size.Y), Vector2.Zero);
 
-            flush(ref used);
+            flush();
 
-            for (int i = used; i < max_paths; i++)
+            for (int i = pathCount; i < max_paths; i++)
                 paths[i].Alpha = 0;
         }
 
-        private void addEdge(FPSosuProjector projector, float yaw, float pitch, Vector2 start, Vector2 end, ref int used)
+        private void addEdge(FPSosuProjector projector, float yaw, float pitch, Vector2 start, Vector2 end)
         {
             var size = OsuPlayfield.BASE_SIZE;
 
@@ -99,7 +99,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
                     || projected.X < -offscreen_margin || projected.X > size.X + offscreen_margin
                     || projected.Y < -offscreen_margin || projected.Y > size.Y + offscreen_margin)
                 {
-                    flush(ref used);
+                    flush();
                     continue;
                 }
 
@@ -110,21 +110,15 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// <summary>
         /// Turns the current run of visible samples into a path, if it has enough points to draw a line.
         /// </summary>
-        private void flush(ref int used)
+        private void flush()
         {
-            if (run.Count < 2)
+            if (run.Count < 2 || pathCount >= max_paths)
             {
                 run.Clear();
                 return;
             }
 
-            if (used >= max_paths)
-            {
-                run.Clear();
-                return;
-            }
-
-            var path = paths[used++];
+            var path = paths[pathCount++];
 
             path.Vertices = run;
             path.Alpha = 1;

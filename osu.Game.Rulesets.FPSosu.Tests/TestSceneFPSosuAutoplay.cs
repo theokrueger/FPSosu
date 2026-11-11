@@ -66,7 +66,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
                 DrawableRuleset?.SetReplayScore(new Score
                 {
                     Replay = new OsuAutoGenerator(GameplayState.Beatmap, Array.Empty<Mod>()).Generate(),
-                    ScoreInfo = new ScoreInfo { User = new APIUser { Username = @"Test" } },
+                    ScoreInfo = new ScoreInfo { User = new APIUser { Username = "Test" } },
                 });
             }
         }

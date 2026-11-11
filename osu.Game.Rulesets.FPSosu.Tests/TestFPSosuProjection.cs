@@ -9,7 +9,7 @@ using osuTK;
 namespace osu.Game.Rulesets.FPSosu.Tests
 {
     [TestFixture]
-    public class TestSceneFPSosuProjection
+    public class TestFPSosuProjection
     {
         private const float tolerance = 0.05f;
 
@@ -105,7 +105,6 @@ namespace osu.Game.Rulesets.FPSosu.Tests
                 }
             }
         }
-
 
         /// <summary>
         /// Out-of-range settings must be clamped to a usable projection rather than producing NaNs or infinities.
@@ -227,8 +226,8 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         }
 
         /// <summary>
-        /// Objects further from the camera must appear smaller. On the dome every object is equidistant, so
-        /// perspective scaling is driven purely by how far off-axis the object is.
+        /// On the dome every object is equidistant from the camera, so perspective scaling is driven purely by how
+        /// far off-axis the object is.
         /// </summary>
         [Test]
         public void TestOffAxisObjectsScaleUpOnDome()
@@ -289,6 +288,38 @@ namespace osu.Game.Rulesets.FPSosu.Tests
 
             // Beyond the right edge of the 512-wide view.
             Assert.That(position.X, Is.GreaterThan(512));
+        }
+
+        /// <summary>
+        /// The camera may overshoot the playfield, but never beyond the projection's invertible range, or a replay
+        /// would record an aim point that plays back on the opposite side.
+        /// </summary>
+        [TestCaseSource(nameof(modes))]
+        public void TestMaxAngularLimitRoundTrips(FPSosuProjectionMode mode)
+        {
+            var projector = new FPSosuProjector(mode, 90, 100);
+            var limit = projector.MaxAngularLimit;
+
+            foreach (var angles in new[] { limit, -limit, new Vector2(limit.X, 0), new Vector2(0, limit.Y) })
+            {
+                var recovered = projector.CameraAnglesToPlayfield(angles.X, angles.Y);
+                var roundTrip = projector.PlayfieldToCameraAngles(recovered);
+
+                Assert.That(roundTrip.X, Is.EqualTo(angles.X).Within(0.1f), $"yaw for {angles} in {mode} mode");
+                Assert.That(roundTrip.Y, Is.EqualTo(angles.Y).Within(0.1f), $"pitch for {angles} in {mode} mode");
+            }
+        }
+
+        /// <summary>
+        /// Looking exactly along the plane's edge makes the ray parallel to it, so there is no intersection to
+        /// recover. The projection must fall back to the centre rather than divide by zero.
+        /// </summary>
+        [Test]
+        public void TestPlaneYawAtRightAngleFallsBackToCentre()
+        {
+            var projector = new FPSosuProjector(FPSosuProjectionMode.Plane, 90, 100);
+
+            Assert.That(projector.CameraAnglesToPlayfield(MathF.PI / 2, 0), Is.EqualTo(FPSosuProjector.PLAYFIELD_CENTRE));
         }
     }
 }

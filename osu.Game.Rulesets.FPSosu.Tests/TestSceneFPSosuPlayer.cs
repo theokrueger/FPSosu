@@ -51,13 +51,11 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         {
             var registered = new FPSosuRuleset().RulesetInfo;
 
-            AddAssert("picks up the registered ruleset", () => Player.DrawableRuleset is not null && registered.ShortName == FPSosuRuleset.SHORT_NAME);
             AddAssert("same short name", () => drawableRuleset.Ruleset.RulesetInfo.ShortName == registered.ShortName);
             AddAssert("same name", () => drawableRuleset.Ruleset.RulesetInfo.Name == registered.Name);
             AddAssert("same online id", () => drawableRuleset.Ruleset.RulesetInfo.OnlineID == registered.OnlineID);
             AddAssert("not a legacy ruleset", () => !drawableRuleset.Ruleset.RulesetInfo.IsLegacyRuleset());
         }
-
 
         /// <summary>
         /// The player loader centres the cursor when gameplay begins. That is not aim, so it must not turn the
@@ -69,6 +67,18 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             AddUntilStep("wait for objects", () => aliveObjects().Any());
 
             AddAssert("camera at rest", () => camera.Yaw == 0 && camera.Pitch == 0);
+        }
+
+        /// <summary>
+        /// The projection must not touch alpha: hit objects are made visible by their own fade-in, and mods such as
+        /// Hidden rely on controlling that alpha themselves.
+        /// </summary>
+        [Test]
+        public void TestObjectsAreVisibleWithoutForcedAlpha()
+        {
+            AddUntilStep("wait for objects", () => aliveObjects().Any());
+
+            AddAssert("objects are visible", () => aliveObjects().All(o => o.Alpha > 0.99f));
         }
 
         /// <summary>
@@ -90,6 +100,53 @@ namespace osu.Game.Rulesets.FPSosu.Tests
 
             AddStep("move mouse down past centre", () => moveMouseBy(new Vector2(0, 200)));
             AddUntilStep("camera pitched down", () => camera.Pitch < -0.01f);
+        }
+
+        /// <summary>
+        /// Sensitivity is a multiplier on the turn rate, so the same movement must turn the camera proportionally
+        /// further.
+        /// </summary>
+        [Test]
+        public void TestSensitivityScalesRotation()
+        {
+            AddUntilStep("wait for objects", () => aliveObjects().Any());
+
+            float normalYaw = 0;
+
+            AddStep("move mouse right", () => moveMouseBy(new Vector2(60, 0)));
+            AddUntilStep("camera turned", () => camera.Yaw > 0.001f);
+            AddStep("record yaw", () => normalYaw = camera.Yaw);
+
+            AddStep("reset and double the sensitivity", () =>
+            {
+                camera.Reset();
+                setSensitivity(2);
+            });
+
+            AddStep("move the same distance", () => moveMouseBy(new Vector2(60, 0)));
+            AddUntilStep("camera turned twice as far", () => Precision.AlmostEquals(camera.Yaw, normalYaw * 2, 1e-3f));
+
+            AddStep("restore", () =>
+            {
+                setSensitivity(1);
+                camera.Reset();
+            });
+        }
+
+        /// <summary>
+        /// Inverted vertical look must flip the pitch direction without affecting yaw.
+        /// </summary>
+        [Test]
+        public void TestInvertPitchFlipsVerticalLook()
+        {
+            AddUntilStep("wait for objects", () => aliveObjects().Any());
+
+            AddStep("invert vertical look", () => setInvertPitch(true));
+            AddStep("move mouse up", () => moveMouseBy(new Vector2(0, -80)));
+            AddUntilStep("camera pitched down", () => camera.Pitch < -0.01f);
+            AddAssert("yaw unaffected", () => Precision.AlmostEquals(camera.Yaw, 0, 1e-4f));
+
+            AddStep("restore", () => setInvertPitch(false));
         }
 
         /// <summary>
@@ -395,6 +452,9 @@ namespace osu.Game.Rulesets.FPSosu.Tests
 
         private void setSensitivity(float value)
             => fpsConfig.GetBindable<float>(FPSosuRulesetSetting.Sensitivity).Value = value;
+
+        private void setInvertPitch(bool value)
+            => fpsConfig.GetBindable<bool>(FPSosuRulesetSetting.InvertPitch).Value = value;
 
         private IEnumerable<DrawableOsuHitObject> aliveObjects()
             => playfield.HitObjectContainer.AliveObjects.OfType<DrawableOsuHitObject>();

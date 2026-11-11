@@ -27,33 +27,23 @@ namespace osu.Game.Rulesets.FPSosu
     /// A ruleset which turns standard osu! into a 3D first-person aim trainer.
     /// </summary>
     /// <remarks>
-    /// The flat osu! playfield is embedded into a 3D world and projected back onto the screen through a camera that
-    /// the mouse rotates, while the crosshair stays fixed at the centre of the screen. Everything else, including
-    /// hit objects, scoring, mods and difficulty calculation, is inherited from osu!.
+    /// The flat osu! playfield is embedded into a 3D world and projected back through a camera the mouse rotates,
+    /// while the crosshair stays fixed at the centre of the screen. Hit objects, scoring, mods and difficulty are
+    /// inherited from osu!.
     ///
     /// <para>
-    /// This type is what the game registers, and it exists only because of how <see cref="RealmRulesetStore"/>
-    /// registers rulesets. Anything implementing <see cref="ILegacyRuleset"/> is registered before everything else,
-    /// and its database row is looked up by <see cref="RulesetInfo.OnlineID"/> rather than by its instantiation info -
-    /// a row is only written when no row with that online ID exists yet. Every ruleset which is not itself a legacy
-    /// ruleset reports an online ID of <c>-1</c> (see the fallback in <see cref="Ruleset.RulesetInfo"/>), and so does
-    /// a derived ruleset which overrides <see cref="ILegacyRuleset.LegacyID"/> to keep away from osu!'s ID of 0.
-    /// A derived ruleset therefore loses its row to whichever other custom ruleset was registered first, and then
-    /// silently disappears from the game with nothing written to the log.
+    /// This type is what the game registers, and it deliberately does <b>not</b> derive from
+    /// <see cref="Osu.OsuRuleset"/>. <see cref="RealmRulesetStore"/> registers <see cref="ILegacyRuleset"/>s first and
+    /// keys their rows on <see cref="RulesetInfo.OnlineID"/>; every non-legacy ruleset reports <c>-1</c>, so a
+    /// derived legacy ruleset loses its row to whichever custom ruleset registered first and then silently vanishes.
+    /// Not being legacy makes the store key the row on this type instead.
     /// </para>
     ///
     /// <para>
-    /// So this type deliberately does <b>not</b> derive from <see cref="Osu.OsuRuleset"/>: not being an
-    /// <see cref="ILegacyRuleset"/> is what makes the store key its row on this type instead, which works alongside
-    /// any number of other custom rulesets. All of osu!'s behaviour lives in <see cref="FPSosuOsuRuleset"/>, an
-    /// internal ruleset which inherits <see cref="Osu.OsuRuleset"/> in full and is never registered itself, and the
-    /// members below simply forward to it. <see cref="DrawableFPSosuRuleset"/> still extends osu!'s drawable ruleset,
-    /// which is what the inherited osu! mods (Classic, Relax and Autopilot among them) require.
-    /// </para>
-    ///
-    /// <para>
-    /// When osu! is updated, check that this type forwards any newly added override of
-    /// <see cref="Osu.OsuRuleset"/> - <c>TestFPSosuRulesetSurface</c> fails if one is missed.
+    /// All osu! behaviour lives in <see cref="FPSosuOsuRuleset"/>, an internal ruleset which is never registered, and
+    /// the members below forward to it. <see cref="DrawableFPSosuRuleset"/> still extends osu!'s drawable ruleset,
+    /// which the inherited osu! mods require. When osu! is updated, <c>TestFPSosuRulesetSurface</c> fails if a new
+    /// <see cref="Osu.OsuRuleset"/> override is not forwarded here.
     /// </para>
     /// </remarks>
     public partial class FPSosuRuleset : Ruleset
@@ -67,7 +57,7 @@ namespace osu.Game.Rulesets.FPSosu
         /// <summary>
         /// The osu! ruleset all gameplay behaviour is inherited from.
         /// </summary>
-        private readonly FPSosuOsuRuleset osuEngine = new FPSosuOsuRuleset();
+        private readonly FPSosuOsuRuleset osuEngine = new();
 
         public override string ShortName => SHORT_NAME;
 

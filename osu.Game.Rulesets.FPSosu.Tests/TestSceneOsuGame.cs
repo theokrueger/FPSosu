@@ -14,14 +14,14 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         [BackgroundDependencyLoader]
         private void load()
         {
-            Children = new Drawable[]
-            {
+            Children =
+            [
                 new Box
                 {
                     RelativeSizeAxes = Axes.Both,
                     Colour = Color4.Black,
                 },
-            };
+            ];
 
             AddGame(new OsuGame());
         }

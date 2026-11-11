@@ -5,7 +5,6 @@ using System;
 using System.Globalization;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
-using osu.Framework.Graphics;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Overlays.Settings;
@@ -38,8 +37,8 @@ namespace osu.Game.Rulesets.FPSosu.UI
             fpsConfig = ((FPSosuRulesetConfigManager)Config).Fps;
             sensitivity = fpsConfig.GetBindable<float>(FPSosuRulesetSetting.Sensitivity);
 
-            Children = new Drawable[]
-            {
+            Children =
+            [
                 enumDropdown<FPSosuProjectionMode>(FPSosuRulesetSetting.ProjectionMode, "Projection",
                     "How the beatmap is placed in the 3D world. A dome keeps every flick the same angular distance; a flat plane makes the edges of the beatmap harder to reach."),
                 floatSlider(FPSosuRulesetSetting.FieldOfView, "Field of view",
@@ -95,7 +94,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
                 checkbox(FPSosuRulesetSetting.CrosshairOutline, "Crosshair outline",
                     "Draws a contrasting outline around the crosshair so it stays visible against bright objects."),
                 enumDropdown<FPSosuCrosshairColour>(FPSosuRulesetSetting.CrosshairColour, "Crosshair colour"),
-            };
+            ];
 
             sourceGame.BindValueChanged(_ => updateConversionPreview());
             sourceSensitivity.BindValueChanged(_ => updateConversionPreview());
@@ -103,7 +102,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
             updateConversionPreview();
         }
 
-        private SettingsSlider<float> floatSlider(FPSosuRulesetSetting setting, string label, string? tooltip = null, float step = 1)
+        private SettingsSlider<float> floatSlider(FPSosuRulesetSetting setting, string label, string tooltip = "", float step = 1)
             => new SettingsSlider<float>
             {
                 LabelText = label,
@@ -112,7 +111,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
                 KeyboardStep = step,
             };
 
-        private SettingsCheckbox checkbox(FPSosuRulesetSetting setting, string label, string? tooltip = null)
+        private SettingsCheckbox checkbox(FPSosuRulesetSetting setting, string label, string tooltip = "")
             => new SettingsCheckbox
             {
                 LabelText = label,
@@ -120,7 +119,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
                 Current = fpsConfig.GetBindable<bool>(setting),
             };
 
-        private SettingsEnumDropdown<T> enumDropdown<T>(FPSosuRulesetSetting setting, string label, string? tooltip = null)
+        private SettingsEnumDropdown<T> enumDropdown<T>(FPSosuRulesetSetting setting, string label, string tooltip = "")
             where T : struct, Enum
             => new SettingsEnumDropdown<T>
             {

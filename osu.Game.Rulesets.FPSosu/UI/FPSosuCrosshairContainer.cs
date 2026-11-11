@@ -57,7 +57,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
         {
             private const float outline_width = 1;
 
-            private readonly Container pieces = new Container
+            private readonly Container pieces = new()
             {
                 Anchor = Anchor.Centre,
                 Origin = Anchor.Centre,
@@ -75,6 +75,11 @@ namespace osu.Game.Rulesets.FPSosu.UI
             private readonly BindableBool crosshairCenterDot = new(true);
             private readonly BindableFloat crosshairOpacity = new(1);
 
+            public Crosshair()
+            {
+                AutoSizeAxes = Axes.Both;
+            }
+
             [BackgroundDependencyLoader]
             private void load(FPSosuConfigManager? config)
             {
@@ -86,7 +91,6 @@ namespace osu.Game.Rulesets.FPSosu.UI
                 config?.BindWith(FPSosuRulesetSetting.CrosshairCenterDot, crosshairCenterDot);
                 config?.BindWith(FPSosuRulesetSetting.CrosshairOpacity, crosshairOpacity);
 
-                AutoSizeAxes = Axes.Both;
                 AddInternal(pieces);
                 build();
             }

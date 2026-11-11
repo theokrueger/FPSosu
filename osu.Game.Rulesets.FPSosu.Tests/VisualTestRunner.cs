@@ -13,7 +13,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         [STAThread]
         public static int Main(string[] args)
         {
-            using var host = Host.GetSuitableDesktopHost(@"osu");
+            using var host = Host.GetSuitableDesktopHost("osu");
             host.Run(new OsuTestBrowser());
             return 0;
         }

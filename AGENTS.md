@@ -71,7 +71,7 @@ Two deliberate deviations from osu!: the playfield's storyboard alignment shift 
 
 ```bash
 dotnet build   # must be 0 errors, 0 warnings
-dotnet test    # 65 tests
+dotnet test    # 72 tests
 ```
 
 Tests cover the projection invariants (round-trips, span/FOV independence, clamping), the camera, and real gameplay through `PlayerTestScene`. The key end-to-end check is `TestSceneFPSosuAutoplay`: autoplay must build combo with **zero misses** while the camera rotates, which proves the projection preserved playability. `TestSceneFPSosuPlayer` also covers the input sources: tablet modes must point the camera from the pen's absolute position without overriding the cursor, **Tablet (mouse sensitivity)** must turn as far per unit of movement as the mouse, and **Standard tablet style** must land the pen on a beatmap position regardless of the Sensitivity slider.

@@ -11,23 +11,19 @@ namespace osu.Game.Rulesets.FPSosu.Projection
     /// Converts between the flat osu! playfield and the 3D world seen through a first-person camera.
     /// </summary>
     /// <remarks>
-    /// This type is deliberately free of framework and drawable dependencies so the projection can be reasoned
-    /// about, and tested, in isolation. All angles are in radians unless stated otherwise.
+    /// Deliberately free of framework and drawable dependencies so the geometry can be tested in isolation. All
+    /// angles are in radians unless stated otherwise.
     ///
     /// The world uses the camera's resting basis: +X right, +Y up, +Z forward. Output is in osu! playfield
     /// coordinates (the same 512x384 space hit objects live in), so a projected position can be assigned directly
     /// to a drawable inside the playfield.
     ///
-    /// Two settings shape the projection, and they are deliberately independent:
+    /// Two independent settings shape the projection:
     /// <list type="bullet">
-    /// <item><description>
-    /// Field of view acts as zoom. It sets the focal length, so it controls how large everything appears
-    /// without changing where objects sit in the world.
-    /// </description></item>
-    /// <item><description>
-    /// Playfield span is the angular width of the beatmap in the world. It controls how far the player must
-    /// physically turn to get from one side of the beatmap to the other, which is the aim-training workload.
-    /// </description></item>
+    /// <item><description>Field of view is zoom: it sets the focal length, so it changes how large everything
+    /// appears without moving objects in the world.</description></item>
+    /// <item><description>Playfield span is the angular width of the beatmap, i.e. how far the player must turn to
+    /// cross it. That is the aim-training workload.</description></item>
     /// </list>
     /// </remarks>
     public readonly struct FPSosuProjector
@@ -65,9 +61,8 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         private const float max_playfield_span = 170f;
 
         /// <summary>
-        /// The focal length at <see cref="DEFAULT_FIELD_OF_VIEW"/>. As tan(45) is 1 this equals the playfield
-        /// half-width. Object scale is normalised against it so that moving away from the default field of view
-        /// magnifies or shrinks objects, while the default view keeps them at their natural osu! size.
+        /// The focal length at <see cref="DEFAULT_FIELD_OF_VIEW"/>. Object scale is normalised against it, so the
+        /// default view keeps objects at their natural osu! size.
         /// </summary>
         private static readonly float default_focal_length = PLAYFIELD_CENTRE.X / MathF.Tan(float.DegreesToRadians(DEFAULT_FIELD_OF_VIEW) / 2);
 
@@ -76,6 +71,11 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         /// A small positive epsilon keeps the perspective divide well conditioned.
         /// </summary>
         private const float near_plane = 0.5f;
+
+        /// <summary>
+        /// Keeps a clamped limit strictly inside the mapping's singularities.
+        /// </summary>
+        private const float limit_epsilon = 1e-3f;
 
         private readonly FPSosuProjectionMode mode;
 
@@ -152,6 +152,19 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         {
             FPSosuProjectionMode.Dome => new Vector2(halfSpan, PLAYFIELD_CENTRE.Y * radiansPerUnit),
             _ => new Vector2(halfSpan, MathF.Atan2(PLAYFIELD_CENTRE.Y, distance)),
+        };
+
+        /// <summary>
+        /// The largest rotation the projection can represent and invert, as (yaw, pitch) in radians.
+        /// </summary>
+        /// <remarks>
+        /// Beyond this the camera looks behind the world, and <see cref="CameraAnglesToPlayfield"/> could not recover
+        /// a matching aim point (the dome wraps at a half turn; the plane is only invertible within a quarter turn).
+        /// </remarks>
+        public Vector2 MaxAngularLimit => mode switch
+        {
+            FPSosuProjectionMode.Dome => new Vector2(MathF.PI - limit_epsilon, MathF.PI / 2 - limit_epsilon),
+            _ => new Vector2(MathF.PI / 2 - limit_epsilon, MathF.PI / 2 - limit_epsilon),
         };
 
         /// <summary>
@@ -233,10 +246,9 @@ namespace osu.Game.Rulesets.FPSosu.Projection
                 PLAYFIELD_CENTRE.X + viewX * perspective,
                 PLAYFIELD_CENTRE.Y - viewY * perspective);
 
-            // Objects further along the view axis shrink, and the whole scene magnifies with the focal length so
-            // that zooming (changing the field of view) changes object size. Normalising by the default focal length
-            // keeps a centred object at its natural osu! size at the default field of view, and the span factor
-            // shrinks objects in proportion to the playfield span so they stay proportional to their spacing.
+            // Objects further along the view axis shrink, and the scene magnifies with the focal length. Normalising
+            // by the default focal length keeps a centred object at natural size at the default field of view, and
+            // the span factor keeps objects proportional to their spacing.
             scale = distance * focalLength / (viewZ * default_focal_length) * spanObjectScale;
             return true;
         }
