@@ -1,7 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
-using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using osu.Framework.Allocation;
 using osu.Framework.Utils;
@@ -9,7 +9,6 @@ using osu.Game.Beatmaps;
 using osu.Game.Rulesets.FPSosu.Configuration;
 using osu.Game.Rulesets.FPSosu.Projection;
 using osu.Game.Rulesets.FPSosu.UI;
-using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Rulesets.Osu.Objects.Drawables;
 using osu.Game.Rulesets.Osu.UI;
@@ -29,15 +28,15 @@ namespace osu.Game.Rulesets.FPSosu.Tests
 
         protected override IBeatmap CreateBeatmap(RulesetInfo ruleset) => new Beatmap
         {
-            HitObjects = new List<HitObject>
-            {
+            HitObjects =
+            [
                 new Spinner
                 {
                     StartTime = 500,
                     Duration = 10000,
                     Position = OsuPlayfield.BASE_SIZE / 2,
                 },
-            },
+            ],
         };
 
         private DrawableFPSosuRuleset drawableRuleset => (DrawableFPSosuRuleset)Player.DrawableRuleset;
@@ -53,7 +52,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             DrawableSpinner? spinner = null;
             int direction = 1;
 
-            AddUntilStep("wait for spinner", () => (spinner = findSpinner()) != null);
+            AddUntilStep("wait for spinner", () => (spinner = findSpinner()) is not null);
             AddUntilStep("wait for spinnable", () => spinner?.RotationTracker.IsSpinnableTime == true);
 
             AddRepeatStep("sweep camera back and forth", () =>
@@ -74,7 +73,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         {
             DrawableSpinner? spinner = null;
 
-            AddUntilStep("wait for spinner", () => (spinner = findSpinner()) != null);
+            AddUntilStep("wait for spinner", () => (spinner = findSpinner()) is not null);
             AddUntilStep("wait for spinnable", () => spinner?.RotationTracker.IsSpinnableTime == true);
 
             AddAssert("spinner sits at the projected playfield centre", () =>
@@ -98,7 +97,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         {
             DrawableSpinner? spinner = null;
 
-            AddUntilStep("wait for spinner", () => (spinner = findSpinner()) != null);
+            AddUntilStep("wait for spinner", () => (spinner = findSpinner()) is not null);
             AddUntilStep("wait for spinnable", () => spinner?.RotationTracker.IsSpinnableTime == true);
 
             AddAssert("spinner sized from the playfield", () =>
@@ -130,7 +129,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             DrawableSpinner? spinner = null;
             int direction = 1;
 
-            AddUntilStep("wait for spinner", () => (spinner = findSpinner()) != null);
+            AddUntilStep("wait for spinner", () => (spinner = findSpinner()) is not null);
             AddUntilStep("wait for spinnable", () => spinner?.RotationTracker.IsSpinnableTime == true);
 
             AddRepeatStep("sweep the camera to its limits", () =>
@@ -160,15 +159,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             => fpsConfig.GetBindable<float>(FPSosuRulesetSetting.PlayfieldSpan).Value = value;
 
         private DrawableSpinner? findSpinner()
-        {
-            foreach (var entry in playfield.HitObjectContainer.AliveEntries)
-            {
-                if (entry.Value is DrawableSpinner spinner)
-                    return spinner;
-            }
-
-            return null;
-        }
+            => playfield.HitObjectContainer.AliveObjects.OfType<DrawableSpinner>().FirstOrDefault();
 
         private void moveMouseBy(Vector2 delta)
             => InputManager.MoveMouseTo(InputManager.CurrentState.Mouse.Position + delta);

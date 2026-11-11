@@ -86,7 +86,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
 
             camera.Rotate(0.9f, 0.9f);
             camera.AngularLimit = new Vector2(0.2f);
-            camera.Rotate(0, 0);
+            camera.Clamp();
 
             Assert.That(camera.Yaw, Is.EqualTo(0.2f).Within(1e-5f));
             Assert.That(camera.Pitch, Is.EqualTo(0.2f).Within(1e-5f));

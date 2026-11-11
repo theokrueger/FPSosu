@@ -5,7 +5,6 @@ using System;
 using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
-using osu.Framework.Graphics;
 using osu.Game.Rulesets.FPSosu.Configuration;
 using osu.Game.Rulesets.FPSosu.Projection;
 using osu.Game.Rulesets.Objects.Drawables;
@@ -37,10 +36,10 @@ namespace osu.Game.Rulesets.FPSosu.UI
         [Resolved]
         private FPSosuCamera camera { get; set; } = null!;
 
-        private readonly Bindable<FPSosuProjectionMode> projectionMode = new Bindable<FPSosuProjectionMode>(FPSosuProjectionMode.Dome);
-        private readonly BindableFloat fieldOfView = new BindableFloat(FPSosuProjector.DEFAULT_FIELD_OF_VIEW);
-        private readonly BindableFloat playfieldSpan = new BindableFloat(FPSosuProjector.DEFAULT_PLAYFIELD_SPAN);
-        private readonly BindableFloat crosshairOvershoot = new BindableFloat(45);
+        private readonly Bindable<FPSosuProjectionMode> projectionMode = new(FPSosuProjectionMode.Dome);
+        private readonly BindableFloat fieldOfView = new(FPSosuProjector.DEFAULT_FIELD_OF_VIEW);
+        private readonly BindableFloat playfieldSpan = new(FPSosuProjector.DEFAULT_PLAYFIELD_SPAN);
+        private readonly BindableFloat crosshairOvershoot = new(45);
 
         /// <summary>
         /// The projection currently in use. Rebuilt only when a setting changes, so the per-frame path stays
@@ -98,6 +97,9 @@ namespace osu.Game.Rulesets.FPSosu.UI
             base.LoadComplete();
 
             JudgementLayer = InternalChildren.OfType<JudgementContainer<DrawableOsuJudgement>>().FirstOrDefault();
+
+            lastSpinnerYaw = camera.Yaw;
+            lastSpinnerPitch = camera.Pitch;
         }
 
         private void updateProjector()
@@ -114,6 +116,11 @@ namespace osu.Game.Rulesets.FPSosu.UI
         {
             float overshoot = float.DegreesToRadians(crosshairOvershoot.Value);
             camera.AngularLimit = Projector.AngularExtent + new Vector2(overshoot);
+            camera.Clamp();
+
+            // Clamping can move the camera abruptly; do not turn that into a burst of spinner rotation.
+            lastSpinnerYaw = camera.Yaw;
+            lastSpinnerPitch = camera.Pitch;
         }
 
         /// <summary>
@@ -145,8 +152,8 @@ namespace osu.Game.Rulesets.FPSosu.UI
                 boundaryProjectionDirty = false;
             }
 
-            foreach (var entry in HitObjectContainer.AliveEntries)
-                project(entry.Value, yaw, pitch);
+            foreach (var drawable in HitObjectContainer.AliveObjects)
+                project(drawable, yaw, pitch);
 
             updateJudgements(yaw, pitch);
             updateSpinners(yaw, pitch);
@@ -154,27 +161,26 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
         private void project(DrawableHitObject drawable, float yaw, float pitch)
         {
-            // Only top-level objects appear in AliveEntries; nested pieces (slider heads, ticks, repeats) are
+            // Only top-level objects appear in AliveObjects; nested pieces (slider heads, ticks, repeats) are
             // positioned by their parent slider and so are carried along by the parent's transform.
             if (drawable is not DrawableOsuHitObject osuObject)
                 return;
 
-            // Sliders are extended objects, so a single position and uniform scale would leave their far end in the
-            // wrong place under perspective. They are projected by their head and tail instead.
-            if (osuObject is DrawableSlider slider)
+            switch (osuObject)
             {
-                projectSlider(slider, yaw, pitch);
-                return;
-            }
+                // Sliders are extended objects, so a single position and uniform scale would leave their far end in
+                // the wrong place under perspective. They are projected by their head and tail instead.
+                case DrawableSlider slider:
+                    projectSlider(slider, yaw, pitch);
+                    return;
 
-            // Spinners are spun by turning the camera rather than by moving the cursor, so their own input handling
-            // is disabled and updateSpinners drives their rotation instead. They are otherwise projected like any
-            // other object, so they sit on the beatmap and move with the world as the camera turns.
-            if (osuObject is DrawableSpinner spinner)
-            {
-                spinner.HandleUserInput = false;
-                projectSpinner(spinner, yaw, pitch);
-                return;
+                // Spinners are spun by turning the camera rather than by moving the cursor, so their own input
+                // handling is disabled and updateSpinners drives their rotation instead. They are otherwise
+                // projected like any other object, so they sit on the beatmap and move with the world.
+                case DrawableSpinner spinner:
+                    spinner.HandleUserInput = false;
+                    projectSpinner(spinner, yaw, pitch);
+                    return;
             }
 
             var world = Projector.PlayfieldToWorld(osuObject.HitObject.StackedPosition);
@@ -205,8 +211,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// </remarks>
         private void projectSpinner(DrawableSpinner spinner, float yaw, float pitch)
         {
-            if (!spinner.AlwaysPresent)
-                spinner.AlwaysPresent = true;
+            spinner.AlwaysPresent = true;
 
             spinner.Alpha = 1;
             spinner.Scale = new Vector2(Projector.CentreScale);
@@ -231,20 +236,23 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// </summary>
         private void updateJudgements(float yaw, float pitch)
         {
-            if (JudgementLayer == null)
+            if (JudgementLayer is null)
                 return;
 
             foreach (var judgement in JudgementLayer)
             {
                 var hitObject = judgement.JudgedHitObject;
 
-                if (hitObject == null)
+                if (hitObject is null)
                     continue;
 
                 // Sliders judge at their tail, matching where osu! places the popup; everything else at its position.
-                Vector2 playfieldPosition = (hitObject as OsuHitObject)?.StackedEndPosition
-                                            ?? (hitObject as IHasPosition)?.Position
-                                            ?? FPSosuProjector.PLAYFIELD_CENTRE;
+                Vector2 playfieldPosition = hitObject switch
+                {
+                    OsuHitObject osuObject => osuObject.StackedEndPosition,
+                    IHasPosition positioned => positioned.Position,
+                    _ => FPSosuProjector.PLAYFIELD_CENTRE,
+                };
 
                 var world = Projector.PlayfieldToWorld(playfieldPosition);
 
@@ -256,7 +264,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
                 judgement.Alpha = 1;
                 judgement.Position = position;
-                judgement.Scale = new Vector2(scale * ((hitObject as OsuHitObject)?.Scale ?? 1));
+                judgement.Scale = new Vector2(scale * (hitObject is OsuHitObject osuHitObject ? osuHitObject.Scale : 1));
             }
         }
 
@@ -319,11 +327,8 @@ namespace osu.Game.Rulesets.FPSosu.UI
             if (rotationDelta <= 0)
                 return;
 
-            foreach (var entry in HitObjectContainer.AliveEntries)
-            {
-                if (entry.Value is DrawableSpinner spinner)
-                    spinSpinner(spinner, rotationDelta);
-            }
+            foreach (var spinner in HitObjectContainer.AliveObjects.OfType<DrawableSpinner>())
+                spinSpinner(spinner, rotationDelta);
         }
 
         /// <summary>
@@ -331,14 +336,13 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// </summary>
         /// <remarks>
         /// The cursor is pinned to the crosshair, so the standard "move the cursor in circles" action is not
-        /// possible. Rotating the camera takes its place. This mirrors how the Spun Out mod drives spinners, except
-        /// the rotation comes from camera movement instead of a fixed speed, and no button needs to be held.
-        /// </remarks>
-        /// <remarks>
+        /// possible. Rotating the camera takes its place, mirroring how the Spun Out mod drives spinners except that
+        /// the rotation comes from camera movement and no button needs to be held.
+        ///
         /// The spinner's own input machinery is not used at all: <see cref="project"/> clears
-        /// <see cref="DrawableHitObject.HandleUserInput"/>, which is what makes a hit object stop propagating input
-        /// to its subtree, so the rotation tracker never sees the cursor. Rotation is added straight to the tracker,
-        /// and the spinner is marked as started here rather than by the tracker's own tracking.
+        /// <see cref="DrawableHitObject.HandleUserInput"/>, which stops a hit object propagating input to its
+        /// subtree, so the rotation tracker never sees the cursor. Rotation is added straight to the tracker, and
+        /// the spinner is marked as started here rather than by the tracker's own tracking.
         /// </remarks>
         private void spinSpinner(DrawableSpinner spinner, float rotationDelta)
         {

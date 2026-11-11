@@ -1,12 +1,11 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System;
 using System.Globalization;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
-using osu.Framework.Graphics.Sprites;
-
 using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Overlays.Settings;
@@ -20,10 +19,11 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// </summary>
     public partial class FPSosuSettingsSubsection : RulesetSettingsSubsection
     {
-        private readonly Bindable<FPSosuSensitivityGame> sourceGame = new Bindable<FPSosuSensitivityGame>();
-        private readonly Bindable<string> sourceSensitivity = new Bindable<string>("1");
-        private readonly Bindable<int?> sourceDpi = new Bindable<int?>(800);
+        private readonly Bindable<FPSosuSensitivityGame> sourceGame = new();
+        private readonly Bindable<string> sourceSensitivity = new("1");
+        private readonly Bindable<int?> sourceDpi = new(800);
 
+        private FPSosuConfigManager fpsConfig = null!;
         private Bindable<float> sensitivity = null!;
         private OsuSpriteText conversionResult = null!;
 
@@ -35,44 +35,21 @@ namespace osu.Game.Rulesets.FPSosu.UI
         [BackgroundDependencyLoader]
         private void load()
         {
-            var config = ((FPSosuRulesetConfigManager)Config).Fps;
-            sensitivity = config.GetBindable<float>(FPSosuRulesetSetting.Sensitivity);
+            fpsConfig = ((FPSosuRulesetConfigManager)Config).Fps;
+            sensitivity = fpsConfig.GetBindable<float>(FPSosuRulesetSetting.Sensitivity);
 
             Children = new Drawable[]
             {
-                new SettingsEnumDropdown<FPSosuProjectionMode>
-                {
-                    LabelText = "Projection",
-                    TooltipText = "How the beatmap is placed in the 3D world. A dome keeps every flick the same angular distance; a flat plane makes the edges of the beatmap harder to reach.",
-                    Current = config.GetBindable<FPSosuProjectionMode>(FPSosuRulesetSetting.ProjectionMode),
-                },
-                new SettingsSlider<float>
-                {
-                    LabelText = "Field of view",
-                    TooltipText = "Zoom. Lower values magnify the beatmap; higher values fit more of the world on screen.",
-                    Current = config.GetBindable<float>(FPSosuRulesetSetting.FieldOfView),
-                    KeyboardStep = 1,
-                },
-                new SettingsSlider<float>
-                {
-                    LabelText = "Playfield span",
-                    TooltipText = "How wide the beatmap is in the world, in degrees. Larger values require turning further to cross the beatmap.",
-                    Current = config.GetBindable<float>(FPSosuRulesetSetting.PlayfieldSpan),
-                    KeyboardStep = 5,
-                },
-                new SettingsEnumDropdown<FPSosuInputSource>
-                {
-                    LabelText = "Input source",
-                    TooltipText = "Which device turns the camera. Mouse reads relative movement. Tablet (mouse sensitivity) points the camera from the pen's absolute position, turning as far per unit of movement as the mouse. Standard tablet style makes the pen point at a beatmap position like a tablet does in standard osu!, so its range follows the playfield span and Sensitivity does not apply. Both tablet modes require osu!'s tablet input to be enabled.",
-                    Current = config.GetBindable<FPSosuInputSource>(FPSosuRulesetSetting.InputSource),
-                },
-                new SettingsSlider<float>
-                {
-                    LabelText = "Sensitivity",
-                    TooltipText = "Multiplier applied to mouse movement when turning the camera.",
-                    Current = config.GetBindable<float>(FPSosuRulesetSetting.Sensitivity),
-                    KeyboardStep = 0.05f,
-                },
+                enumDropdown<FPSosuProjectionMode>(FPSosuRulesetSetting.ProjectionMode, "Projection",
+                    "How the beatmap is placed in the 3D world. A dome keeps every flick the same angular distance; a flat plane makes the edges of the beatmap harder to reach."),
+                floatSlider(FPSosuRulesetSetting.FieldOfView, "Field of view",
+                    "Zoom. Lower values magnify the beatmap; higher values fit more of the world on screen."),
+                floatSlider(FPSosuRulesetSetting.PlayfieldSpan, "Playfield span",
+                    "How wide the beatmap is in the world, in degrees. Larger values require turning further to cross the beatmap.", 5),
+                enumDropdown<FPSosuInputSource>(FPSosuRulesetSetting.InputSource, "Input source",
+                    "Which device turns the camera. Mouse reads relative movement. Tablet (mouse sensitivity) points the camera from the pen's absolute position, turning as far per unit of movement as the mouse. Standard tablet style makes the pen point at a beatmap position like a tablet does in standard osu!, so its range follows the playfield span and Sensitivity does not apply. Both tablet modes require osu!'s tablet input to be enabled."),
+                floatSlider(FPSosuRulesetSetting.Sensitivity, "Sensitivity",
+                    "Multiplier applied to mouse movement when turning the camera.", 0.05f),
                 new SettingsEnumDropdown<FPSosuSensitivityGame>
                 {
                     LabelText = "Convert from",
@@ -101,74 +78,56 @@ namespace osu.Game.Rulesets.FPSosu.UI
                     Font = OsuFont.GetFont(size: 14),
                     Colour = OsuColour.Gray(0.8f),
                 },
-                new SettingsSlider<float>
-                {
-                    LabelText = "Crosshair overshoot",
-                    TooltipText = "How far past the edge of the playfield the crosshair can move, in degrees. Set to zero to keep it locked to the beatmap.",
-                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairOvershoot),
-                    KeyboardStep = 5,
-                },
-                new SettingsCheckbox
-                {
-                    LabelText = "Invert vertical look",
-                    Current = config.GetBindable<bool>(FPSosuRulesetSetting.InvertPitch),
-                },
-                new SettingsCheckbox
-                {
-                    LabelText = "Show crosshair",
-                    Current = config.GetBindable<bool>(FPSosuRulesetSetting.ShowCrosshair),
-                },
-                new SettingsSlider<float>
-                {
-                    LabelText = "Crosshair gap",
-                    TooltipText = "The empty space between the centre and the crosshair lines.",
-                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairGap),
-                    KeyboardStep = 0.1f,
-                },
-                new SettingsSlider<float>
-                {
-                    LabelText = "Crosshair line length",
-                    TooltipText = "How long each crosshair line is.",
-                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairLineLength),
-                    KeyboardStep = 0.1f,
-                },
-                new SettingsSlider<float>
-                {
-                    LabelText = "Crosshair line thickness",
-                    TooltipText = "How thick the crosshair lines and centre dot are.",
-                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairThickness),
-                    KeyboardStep = 0.1f,
-                },
-                new SettingsSlider<float>
-                {
-                    LabelText = "Crosshair opacity",
-                    TooltipText = "How transparent the crosshair is. Lower values let the playfield show through.",
-                    Current = config.GetBindable<float>(FPSosuRulesetSetting.CrosshairOpacity),
-                    KeyboardStep = 0.01f,
-                },
-                new SettingsCheckbox
-                {
-                    LabelText = "Crosshair centre dot",
-                    TooltipText = "Draws a dot at the exact point hits are registered.",
-                    Current = config.GetBindable<bool>(FPSosuRulesetSetting.CrosshairCenterDot),
-                },
-                new SettingsCheckbox
-                {
-                    LabelText = "Crosshair outline",
-                    TooltipText = "Draws a contrasting outline around the crosshair so it stays visible against bright objects.",
-                    Current = config.GetBindable<bool>(FPSosuRulesetSetting.CrosshairOutline),
-                },
-                new SettingsEnumDropdown<FPSosuCrosshairColour>
-                {
-                    LabelText = "Crosshair colour",
-                    Current = config.GetBindable<FPSosuCrosshairColour>(FPSosuRulesetSetting.CrosshairColour),
-                },
+                floatSlider(FPSosuRulesetSetting.CrosshairOvershoot, "Crosshair overshoot",
+                    "How far past the edge of the playfield the crosshair can move, in degrees. Set to zero to keep it locked to the beatmap.", 5),
+                checkbox(FPSosuRulesetSetting.InvertPitch, "Invert vertical look"),
+                checkbox(FPSosuRulesetSetting.ShowCrosshair, "Show crosshair"),
+                floatSlider(FPSosuRulesetSetting.CrosshairGap, "Crosshair gap",
+                    "The empty space between the centre and the crosshair lines.", 0.1f),
+                floatSlider(FPSosuRulesetSetting.CrosshairLineLength, "Crosshair line length",
+                    "How long each crosshair line is.", 0.1f),
+                floatSlider(FPSosuRulesetSetting.CrosshairThickness, "Crosshair line thickness",
+                    "How thick the crosshair lines and centre dot are.", 0.1f),
+                floatSlider(FPSosuRulesetSetting.CrosshairOpacity, "Crosshair opacity",
+                    "How transparent the crosshair is. Lower values let the playfield show through.", 0.01f),
+                checkbox(FPSosuRulesetSetting.CrosshairCenterDot, "Crosshair centre dot",
+                    "Draws a dot at the exact point hits are registered."),
+                checkbox(FPSosuRulesetSetting.CrosshairOutline, "Crosshair outline",
+                    "Draws a contrasting outline around the crosshair so it stays visible against bright objects."),
+                enumDropdown<FPSosuCrosshairColour>(FPSosuRulesetSetting.CrosshairColour, "Crosshair colour"),
             };
+
             sourceGame.BindValueChanged(_ => updateConversionPreview());
             sourceSensitivity.BindValueChanged(_ => updateConversionPreview());
             sourceDpi.BindValueChanged(_ => updateConversionPreview());
             updateConversionPreview();
         }
+
+        private SettingsSlider<float> floatSlider(FPSosuRulesetSetting setting, string label, string? tooltip = null, float step = 1)
+            => new SettingsSlider<float>
+            {
+                LabelText = label,
+                TooltipText = tooltip,
+                Current = fpsConfig.GetBindable<float>(setting),
+                KeyboardStep = step,
+            };
+
+        private SettingsCheckbox checkbox(FPSosuRulesetSetting setting, string label, string? tooltip = null)
+            => new SettingsCheckbox
+            {
+                LabelText = label,
+                TooltipText = tooltip,
+                Current = fpsConfig.GetBindable<bool>(setting),
+            };
+
+        private SettingsEnumDropdown<T> enumDropdown<T>(FPSosuRulesetSetting setting, string label, string? tooltip = null)
+            where T : struct, Enum
+            => new SettingsEnumDropdown<T>
+            {
+                LabelText = label,
+                TooltipText = tooltip,
+                Current = fpsConfig.GetBindable<T>(setting),
+            };
 
         private void applyConvertedSensitivity()
         {
@@ -189,9 +148,6 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
         private void updateConversionPreview()
         {
-            if (conversionResult == null)
-                return;
-
             if (!tryReadConverterInputs(out var game, out float sourceSens, out float dpi))
             {
                 conversionResult.Text = "Enter a sensitivity above to preview the conversion.";

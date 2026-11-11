@@ -51,11 +51,24 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         {
             var registered = new FPSosuRuleset().RulesetInfo;
 
-            AddAssert("picks up the registered ruleset", () => Player.DrawableRuleset != null && registered.ShortName == FPSosuRuleset.SHORT_NAME);
+            AddAssert("picks up the registered ruleset", () => Player.DrawableRuleset is not null && registered.ShortName == FPSosuRuleset.SHORT_NAME);
             AddAssert("same short name", () => drawableRuleset.Ruleset.RulesetInfo.ShortName == registered.ShortName);
             AddAssert("same name", () => drawableRuleset.Ruleset.RulesetInfo.Name == registered.Name);
             AddAssert("same online id", () => drawableRuleset.Ruleset.RulesetInfo.OnlineID == registered.OnlineID);
             AddAssert("not a legacy ruleset", () => !drawableRuleset.Ruleset.RulesetInfo.IsLegacyRuleset());
+        }
+
+
+        /// <summary>
+        /// The player loader centres the cursor when gameplay begins. That is not aim, so it must not turn the
+        /// camera before the first movement.
+        /// </summary>
+        [Test]
+        public void TestCameraStartsAtRest()
+        {
+            AddUntilStep("wait for objects", () => aliveObjects().Any());
+
+            AddAssert("camera at rest", () => camera.Yaw == 0 && camera.Pitch == 0);
         }
 
         /// <summary>
@@ -174,6 +187,27 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         }
 
         /// <summary>
+        /// The camera must be driven by mouse move events, not by polling the cursor position. A cursor repositioned
+        /// without an event (a warp, or the player loader centring it) must not count as aim.
+        /// </summary>
+        [Test]
+        public void TestCameraIgnoresPositionChangesWithoutMovement()
+        {
+            AddUntilStep("wait for objects", () => aliveObjects().Any());
+
+            float yaw = 0;
+
+            AddStep("move mouse right", () => moveMouseBy(new Vector2(80, 0)));
+            AddUntilStep("camera turned", () => camera.Yaw > 0.01f);
+            AddStep("record yaw", () => yaw = camera.Yaw);
+
+            AddStep("teleport the cursor without an event", () => InputManager.CurrentState.Mouse.Position += new Vector2(400, 0));
+            AddWaitStep("let updates run", 5);
+
+            AddAssert("camera did not rotate", () => Precision.AlmostEquals(camera.Yaw, yaw, 1e-4f));
+        }
+
+        /// <summary>
         /// When the ruleset is not taking input, as when paused, moving the mouse must not rotate the camera or drag
         /// the cursor back to the crosshair. That is what leaves the cursor free to navigate the pause menu.
         /// </summary>
@@ -198,6 +232,8 @@ namespace osu.Game.Rulesets.FPSosu.Tests
 
             AddStep("restore pass-through", () => drawableRuleset.KeyBindingInputManager.UseParentInput = true);
             AddWaitStep("let it resync", 5);
+
+            AddAssert("camera did not jump on resume", () => camera.Yaw == yawBefore && camera.Pitch == pitchBefore);
         }
 
         /// <summary>

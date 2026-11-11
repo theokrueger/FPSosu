@@ -148,10 +148,11 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         /// Clamping camera rotation to this keeps the whole beatmap reachable and stops the player from spinning
         /// away and losing it entirely.
         /// </remarks>
-        public Vector2 AngularExtent =>
-            mode == FPSosuProjectionMode.Dome
-                ? new Vector2(halfSpan, PLAYFIELD_CENTRE.Y * radiansPerUnit)
-                : new Vector2(halfSpan, MathF.Atan2(PLAYFIELD_CENTRE.Y, distance));
+        public Vector2 AngularExtent => mode switch
+        {
+            FPSosuProjectionMode.Dome => new Vector2(halfSpan, PLAYFIELD_CENTRE.Y * radiansPerUnit),
+            _ => new Vector2(halfSpan, MathF.Atan2(PLAYFIELD_CENTRE.Y, distance)),
+        };
 
         /// <summary>
         /// The scale of an object at the centre of the playfield, i.e. directly under the crosshair at rest.
@@ -181,12 +182,13 @@ namespace osu.Game.Rulesets.FPSosu.Projection
                 float yaw = offsetX * radiansPerUnit;
                 float pitch = offsetY * radiansPerUnit;
 
-                float cosPitch = MathF.Cos(pitch);
+                var (sinYaw, cosYaw) = MathF.SinCos(yaw);
+                var (sinPitch, cosPitch) = MathF.SinCos(pitch);
 
                 return new Vector3(
-                    MathF.Sin(yaw) * cosPitch * dome_radius,
-                    MathF.Sin(pitch) * dome_radius,
-                    MathF.Cos(yaw) * cosPitch * dome_radius);
+                    sinYaw * cosPitch * dome_radius,
+                    sinPitch * dome_radius,
+                    cosYaw * cosPitch * dome_radius);
             }
 
             // The playfield stays a flat rectangle floating at a fixed distance ahead.
@@ -209,14 +211,11 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         public bool WorldToPlayfield(Vector3 world, float yaw, float pitch, out Vector2 playfieldPosition, out float scale)
         {
             // Rotate the point into view space by applying the inverse camera rotation: undo yaw about Y, then pitch about X.
-            float cosYaw = MathF.Cos(yaw);
-            float sinYaw = MathF.Sin(yaw);
+            var (sinYaw, cosYaw) = MathF.SinCos(yaw);
+            var (sinPitch, cosPitch) = MathF.SinCos(pitch);
 
             float viewX = world.X * cosYaw - world.Z * sinYaw;
             float forward = world.X * sinYaw + world.Z * cosYaw;
-
-            float cosPitch = MathF.Cos(pitch);
-            float sinPitch = MathF.Sin(pitch);
 
             float viewY = world.Y * cosPitch - forward * sinPitch;
             float viewZ = world.Y * sinPitch + forward * cosPitch;
@@ -285,12 +284,12 @@ namespace osu.Game.Rulesets.FPSosu.Projection
             else
             {
                 // Intersect the view ray with the plane sitting at a fixed distance ahead.
-                float cosYaw = MathF.Cos(yaw);
+                var (sinYaw, cosYaw) = MathF.SinCos(yaw);
 
                 if (MathF.Abs(cosYaw) < 1e-6f)
                     return PLAYFIELD_CENTRE;
 
-                offsetX = distance * MathF.Tan(yaw);
+                offsetX = distance * sinYaw / cosYaw;
                 offsetY = distance / cosYaw * MathF.Tan(pitch);
             }
 

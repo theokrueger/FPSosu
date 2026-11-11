@@ -41,12 +41,12 @@ namespace osu.Game.Rulesets.FPSosu.Configuration
         /// osu!'s cursor sensitivity.
         /// </summary>
         /// <remarks>
-        /// With high-precision (relative) mouse mode enabled the framework pre-multiplies raw mouse counts by osu!'s
-        /// cursor sensitivity before they reach the ruleset, so the factor is divided back out to keep the turn rate
+        /// With relative (raw) mouse mode enabled the framework pre-multiplies raw mouse counts by osu!'s cursor
+        /// sensitivity before they reach the ruleset, so the factor is divided back out to keep the turn rate
         /// constant per count. Without it the OS pointer scaling is in effect and cannot be normalised away.
         /// </remarks>
-        public static float EffectiveRadiansPerPixel(double cursorSensitivity, bool highPrecisionMouse)
-            => highPrecisionMouse && cursorSensitivity > 0 ? RADIANS_PER_PIXEL / (float)cursorSensitivity : RADIANS_PER_PIXEL;
+        public static float EffectiveRadiansPerPixel(double cursorSensitivity, bool relativeMode)
+            => relativeMode && cursorSensitivity > 0 ? RADIANS_PER_PIXEL / (float)cursorSensitivity : RADIANS_PER_PIXEL;
 
         /// <summary>
         /// The yaw of the given game, in degrees of camera rotation per mouse count at a sensitivity of 1.

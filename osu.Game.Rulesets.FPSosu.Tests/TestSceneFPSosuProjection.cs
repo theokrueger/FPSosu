@@ -13,10 +13,10 @@ namespace osu.Game.Rulesets.FPSosu.Tests
     {
         private const float tolerance = 0.05f;
 
-        private static readonly FPSosuProjectionMode[] modes = { FPSosuProjectionMode.Dome, FPSosuProjectionMode.Plane };
+        private static readonly FPSosuProjectionMode[] modes = [FPSosuProjectionMode.Dome, FPSosuProjectionMode.Plane];
 
         private static readonly Vector2[] sample_positions =
-        {
+        [
             FPSosuProjector.PLAYFIELD_CENTRE,
             Vector2.Zero,
             new Vector2(512, 0),
@@ -24,7 +24,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             new Vector2(512, 384),
             new Vector2(100, 300),
             new Vector2(383, 47),
-        };
+        ];
 
         /// <summary>
         /// With the camera at rest the centre of the playfield must project to the crosshair at natural size,
@@ -104,6 +104,25 @@ namespace osu.Game.Rulesets.FPSosu.Tests
                     Assert.That(float.RadiansToDegrees(right - left), Is.EqualTo(span).Within(0.01f), $"span {span} at fov {fov} in {mode} mode");
                 }
             }
+        }
+
+
+        /// <summary>
+        /// Out-of-range settings must be clamped to a usable projection rather than producing NaNs or infinities.
+        /// </summary>
+        [TestCaseSource(nameof(modes))]
+        public void TestOutOfRangeSettingsAreClamped(FPSosuProjectionMode mode)
+        {
+            var projector = new FPSosuProjector(mode, -1000, 1000);
+            var extent = projector.AngularExtent;
+
+            Assert.That(float.IsFinite(extent.X) && float.IsFinite(extent.Y), Is.True);
+            Assert.That(extent.X, Is.GreaterThan(0));
+            Assert.That(extent.Y, Is.GreaterThan(0));
+
+            Assert.That(projector.WorldToPlayfield(projector.PlayfieldToWorld(new Vector2(512, 384)), 0, 0, out var position, out float scale), Is.True);
+            Assert.That(float.IsFinite(position.X) && float.IsFinite(position.Y), Is.True);
+            Assert.That(float.IsFinite(scale) && scale > 0, Is.True);
         }
 
         /// <summary>

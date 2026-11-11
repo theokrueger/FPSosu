@@ -63,8 +63,8 @@ namespace osu.Game.Rulesets.FPSosu
         /// The osu! mods which do not work under the 3D projection: they error out, rewrite object positions in ways
         /// the projection overwrites, or drive the cursor themselves (which is pinned to the crosshair here).
         /// </summary>
-        private static readonly Type[] unsupported_mods =
-        {
+        private static readonly HashSet<Type> unsupported_mods =
+        [
             typeof(OsuModAutoplay),
             typeof(OsuModAutopilot),
             typeof(OsuModCinema),
@@ -80,7 +80,7 @@ namespace osu.Game.Rulesets.FPSosu
             typeof(OsuModRepel),
             typeof(OsuModMagnetised),
             typeof(OsuModNoScope),
-        };
+        ];
 
         public override IEnumerable<Mod> GetModsFor(ModType type)
         {

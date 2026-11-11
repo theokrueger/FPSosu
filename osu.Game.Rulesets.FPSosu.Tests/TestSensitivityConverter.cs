@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System;
 using NUnit.Framework;
 using osu.Game.Rulesets.FPSosu.Configuration;
 
@@ -12,15 +13,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         [Test]
         public void TestConversionPreservesCmPer360()
         {
-            foreach (var game in new[]
-                     {
-                         FPSosuSensitivityGame.CounterStrike2,
-                         FPSosuSensitivityGame.Valorant,
-                         FPSosuSensitivityGame.RainbowSixSiege,
-                         FPSosuSensitivityGame.ApexLegends,
-                         FPSosuSensitivityGame.Overwatch2,
-                         FPSosuSensitivityGame.CallOfDuty,
-                     })
+            foreach (var game in Enum.GetValues<FPSosuSensitivityGame>())
             {
                 foreach (float sourceSensitivity in new[] { 0.3f, 1.0f, 2.5f })
                 {
@@ -50,16 +43,16 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         }
 
         [Test]
-        public void TestCursorSensitivityIsNormalisedInHighPrecisionMode()
+        public void TestCursorSensitivityIsNormalisedInRelativeMode()
         {
-            // In high-precision mode the framework pre-multiplies counts by osu!'s cursor sensitivity, so it must be
+            // In relative mode the framework pre-multiplies counts by osu!'s cursor sensitivity, so it must be
             // divided back out to keep the turn rate constant per count.
             Assert.That(FPSosuSensitivityConverter.EffectiveRadiansPerPixel(2.0, true),
                         Is.EqualTo(FPSosuSensitivityConverter.RADIANS_PER_PIXEL / 2).Within(1e-9));
             Assert.That(FPSosuSensitivityConverter.EffectiveRadiansPerPixel(0.5, true),
                         Is.EqualTo(FPSosuSensitivityConverter.RADIANS_PER_PIXEL * 2).Within(1e-9));
 
-            // Without high-precision mode the OS scales the pointer; the value must be left alone.
+            // Without relative mode the OS scales the pointer; the value must be left alone.
             Assert.That(FPSosuSensitivityConverter.EffectiveRadiansPerPixel(2.0, false),
                         Is.EqualTo(FPSosuSensitivityConverter.RADIANS_PER_PIXEL).Within(1e-9));
 

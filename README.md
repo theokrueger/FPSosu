@@ -19,6 +19,7 @@ The mouse rotates the camera while the crosshair stays pinned to the centre of t
 - Don't be afraid of using Spun out and/or Relax
 - Adjust playfield span frequently
 - **Select appropriate input method in settings**
+- **Enable High precision mouse (raw input)** in osu!'s input settings for unbounded turning; without it the cursor reaches the window edge.
 
 # Settings
 

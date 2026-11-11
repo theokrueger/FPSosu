@@ -25,7 +25,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// </remarks>
     public partial class FPSosuCrosshairContainer : GameplayCursorContainer
     {
-        private readonly BindableBool showCrosshair = new BindableBool(true);
+        private readonly BindableBool showCrosshair = new(true);
 
         protected override Drawable CreateCursor() => new Crosshair();
 
@@ -64,16 +64,16 @@ namespace osu.Game.Rulesets.FPSosu.UI
                 AutoSizeAxes = Axes.Both,
             };
 
-            private readonly List<Box> fillPieces = new List<Box>();
-            private readonly List<Box> outlinePieces = new List<Box>();
+            private readonly List<Box> fillPieces = new();
+            private readonly List<Box> outlinePieces = new();
 
-            private readonly BindableBool crosshairOutline = new BindableBool(true);
-            private readonly Bindable<FPSosuCrosshairColour> crosshairColour = new Bindable<FPSosuCrosshairColour>(FPSosuCrosshairColour.White);
-            private readonly BindableFloat crosshairGap = new BindableFloat(3);
-            private readonly BindableFloat crosshairLineLength = new BindableFloat(10);
-            private readonly BindableFloat crosshairThickness = new BindableFloat(2);
-            private readonly BindableBool crosshairCenterDot = new BindableBool(true);
-            private readonly BindableFloat crosshairOpacity = new BindableFloat(1);
+            private readonly BindableBool crosshairOutline = new(true);
+            private readonly Bindable<FPSosuCrosshairColour> crosshairColour = new(FPSosuCrosshairColour.White);
+            private readonly BindableFloat crosshairGap = new(3);
+            private readonly BindableFloat crosshairLineLength = new(10);
+            private readonly BindableFloat crosshairThickness = new(2);
+            private readonly BindableBool crosshairCenterDot = new(true);
+            private readonly BindableFloat crosshairOpacity = new(1);
 
             [BackgroundDependencyLoader]
             private void load(FPSosuConfigManager? config)
@@ -171,23 +171,13 @@ namespace osu.Game.Rulesets.FPSosu.UI
                     piece.Colour = colour;
             }
 
-            private static Color4 toColour(FPSosuCrosshairColour colour)
+            private static Color4 toColour(FPSosuCrosshairColour colour) => colour switch
             {
-                switch (colour)
-                {
-                    case FPSosuCrosshairColour.Red:
-                        return Color4.Red;
-
-                    case FPSosuCrosshairColour.Green:
-                        return Color4.Green;
-
-                    case FPSosuCrosshairColour.Blue:
-                        return Color4.Blue;
-
-                    default:
-                        return Color4.White;
-                }
-            }
+                FPSosuCrosshairColour.Red => Color4.Red,
+                FPSosuCrosshairColour.Green => Color4.Green,
+                FPSosuCrosshairColour.Blue => Color4.Blue,
+                _ => Color4.White,
+            };
         }
     }
 }

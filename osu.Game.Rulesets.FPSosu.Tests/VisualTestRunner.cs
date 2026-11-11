@@ -13,11 +13,9 @@ namespace osu.Game.Rulesets.FPSosu.Tests
         [STAThread]
         public static int Main(string[] args)
         {
-            using (DesktopGameHost host = Host.GetSuitableDesktopHost(@"osu"))
-            {
-                host.Run(new OsuTestBrowser());
-                return 0;
-            }
+            using var host = Host.GetSuitableDesktopHost(@"osu");
+            host.Run(new OsuTestBrowser());
+            return 0;
         }
     }
 }

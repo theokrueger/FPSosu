@@ -53,7 +53,7 @@ namespace osu.Game.Rulesets.FPSosu.Replays
 
             // The cursor stays centred, exactly as it does during live play.
             inputs.Add(new MousePositionAbsoluteInput { Position = crosshairPosition() });
-            inputs.Add(new ReplayState<OsuAction> { PressedActions = CurrentFrame?.Actions ?? new List<OsuAction>() });
+            inputs.Add(new ReplayState<OsuAction> { PressedActions = CurrentFrame?.Actions ?? [] });
         }
     }
 }

@@ -27,18 +27,13 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// <see cref="FPSosuRulesetSetting.InputSource"/>:
     /// <list type="bullet">
     /// <item><description>
-    /// <b>Mouse</b> (the default) is relative: each frame the movement of the parent input manager's cursor since
-    /// the previous frame is converted into camera rotation. Measuring frame-to-frame deltas (rather than
-    /// recentering the cursor and reading its offset) applies every movement exactly once regardless of frame
-    /// timing. The parent cursor is pulled back to the crosshair only if it drifts beyond a margin, so it never runs
-    /// into the window edge and stops reporting movement.
+    /// <b>Mouse</b> (the default) is relative: each <see cref="MouseMoveEvent"/> rotates the camera by the movement
+    /// it reports. Driving rotation from the event rather than from the polled cursor position is what keeps a
+    /// platform which cannot warp the cursor (Wayland) from feeding a stale position back into the camera.
     /// </description></item>
     /// <item><description>
     /// <b>Tablet (mouse sensitivity)</b> is absolute: the pen's position on the tablet points the camera, with the
-    /// pen at the crosshair looking straight ahead, turned at the same rate per unit of movement as the mouse. This
-    /// is what a graphics tablet actually reports, and the reason the relative path cannot serve it: pulling the
-    /// parent cursor back to the crosshair is immediately undone by the next absolute pen report, so the resulting
-    /// deltas oscillate. Absolute input therefore never overrides the parent cursor.
+    /// pen at the crosshair looking straight ahead, turned at the same rate per unit of movement as the mouse.
     /// </description></item>
     /// <item><description>
     /// <b>Standard tablet style</b> is also absolute, but geometric: the pen points at a position on the beatmap and
@@ -53,23 +48,27 @@ namespace osu.Game.Rulesets.FPSosu.UI
     /// </remarks>
     public partial class FPSosuInputManager : OsuInputManager
     {
-
         [Resolved]
         private FPSosuCamera camera { get; set; } = null!;
-
-        private readonly BindableFloat sensitivity = new BindableFloat(1);
-        private readonly BindableBool invertPitch = new BindableBool();
-        private readonly Bindable<FPSosuInputSource> inputSource = new Bindable<FPSosuInputSource>(FPSosuInputSource.Mouse);
 
         [Resolved]
         private GameHost host { get; set; } = null!;
 
+        private readonly BindableFloat sensitivity = new(1);
+        private readonly BindableBool invertPitch = new();
+        private readonly Bindable<FPSosuInputSource> inputSource = new(FPSosuInputSource.Mouse);
+
         /// <summary>
-        /// osu!'s cursor sensitivity and high-precision toggle, read live from the active mouse handler so their
-        /// effect can be normalised out of the camera rotation. Null when the host has no mouse handler (tests).
+        /// osu!'s cursor sensitivity, read live from the active mouse handler so its effect can be normalised out of
+        /// relative mouse movement. Null when the host has no mouse handler (tests).
         /// </summary>
         private BindableNumber<double>? cursorSensitivity;
-        private Bindable<bool>? highPrecisionMouse;
+
+        /// <summary>
+        /// osu!'s relative (raw) mouse toggle, read live from the active mouse handler. Relative movement is
+        /// pre-multiplied by <see cref="cursorSensitivity"/>, so it has to be divided back out.
+        /// </summary>
+        private Bindable<bool>? relativeMode;
 
         /// <summary>
         /// Whether mouse movement should rotate the camera and pin the cursor to the crosshair.
@@ -100,11 +99,16 @@ namespace osu.Game.Rulesets.FPSosu.UI
         private InputManager? parentInputManager;
 
         /// <summary>
-        /// The parent input manager's cursor position on the previous frame. Used to turn the frame-to-frame mouse
-        /// movement into camera rotation. Cleared whenever camera control is inactive so the movement made over the
-        /// pause menu is not applied as a jump on resume.
+        /// The parent cursor position reported by the last mouse move event, in screen space. Null until the first
+        /// active update, so movement made while paused is not applied on resume.
         /// </summary>
-        private Vector2? lastParentPosition;
+        private Vector2? lastEventPosition;
+
+        /// <summary>
+        /// The last move event applied. The framework periodically re-propagates the most recent event to
+        /// high-frequency listeners; it must not be applied twice.
+        /// </summary>
+        private MouseMoveEvent? lastMoveEvent;
 
         public FPSosuInputManager(RulesetInfo ruleset)
             : base(ruleset)
@@ -118,18 +122,15 @@ namespace osu.Game.Rulesets.FPSosu.UI
             config?.BindWith(FPSosuRulesetSetting.InvertPitch, invertPitch);
             config?.BindWith(FPSosuRulesetSetting.InputSource, inputSource);
 
-            // Changing source mid-play would otherwise turn the stale cursor position into one enormous delta. The
-            // position is forgotten instead, so the new source starts from wherever it is now.
-            inputSource.BindValueChanged(_ => lastParentPosition = null);
+            // Changing source mid-play would otherwise turn the stale cursor position into one enormous delta.
+            inputSource.BindValueChanged(_ => resetTracking());
 
             var mouseHandler = host.AvailableInputHandlers.OfType<MouseHandler>().FirstOrDefault();
 
-            if (mouseHandler != null)
+            if (mouseHandler is not null)
             {
-                // Read the handler's own bindables rather than bound copies: they live as long as the host, so a
-                // copy would only add a subscription which this manager is never in a position to dispose.
                 cursorSensitivity = mouseHandler.Sensitivity;
-                highPrecisionMouse = mouseHandler.UseRelativeMode;
+                relativeMode = mouseHandler.UseRelativeMode;
             }
         }
 
@@ -142,14 +143,33 @@ namespace osu.Game.Rulesets.FPSosu.UI
 
         protected override bool Handle(UIEvent e)
         {
-            // Movement is consumed in Update() by comparing against the parent's cursor position, because the
-            // high-frequency mouse move events the framework synthesises each frame carry no usable delta
-            // (their "last position" is set equal to their current position). Only swallow movement during active
-            // gameplay, so the cursor stays free to navigate the pause menu.
-            if (e is MouseMoveEvent && AllowCameraControl && UseParentInput)
+            if (e is not MouseMoveEvent move || !AllowCameraControl || !UseParentInput)
+                return base.Handle(e);
+
+            if (ReferenceEquals(move, lastMoveEvent))
                 return true;
 
-            return base.Handle(e);
+            lastMoveEvent = move;
+
+            if (inputSource.Value == FPSosuInputSource.Mouse)
+                handleMouseMove(move);
+
+            // Movement is consumed here; the cursor is pinned to the crosshair in Update.
+            return true;
+        }
+
+        /// <summary>
+        /// Rotates the camera by the movement reported by a mouse move event.
+        /// </summary>
+        private void handleMouseMove(MouseMoveEvent move)
+        {
+            Vector2 position = move.ScreenSpaceMousePosition;
+
+            if (lastEventPosition is not Vector2 last || position == last)
+                return;
+
+            rotateBy(position - last);
+            lastEventPosition = position;
         }
 
         /// <summary>
@@ -233,7 +253,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
         /// Radians of camera rotation per local unit of movement, shared by both input sources.
         /// </summary>
         private float radiansPerLocalUnit()
-            => FPSosuSensitivityConverter.EffectiveRadiansPerPixel(cursorSensitivity?.Value ?? 1, highPrecisionMouse?.Value ?? false) * sensitivity.Value;
+            => FPSosuSensitivityConverter.EffectiveRadiansPerPixel(cursorSensitivity?.Value ?? 1, relativeMode?.Value ?? false) * sensitivity.Value;
 
         protected override void Update()
         {
@@ -244,11 +264,16 @@ namespace osu.Game.Rulesets.FPSosu.UI
             // UseParentInput is only true during active gameplay: the drawable ruleset clears it while paused and a
             // replay handler clears it during replays. Bailing out here leaves the cursor free for the pause menu, and
             // forgetting the last position means the movement made over the menu is not applied on resume.
-            if (parent == null || !AllowCameraControl || !UseParentInput)
+            if (parent is null || !AllowCameraControl || !UseParentInput)
             {
-                lastParentPosition = null;
+                resetTracking();
                 return;
             }
+
+            // Start measuring from wherever the cursor is when control becomes active, so movement made while
+            // paused (or by the player loader centring the cursor) is not applied as a jump.
+            if (inputSource.Value == FPSosuInputSource.Mouse && lastEventPosition is null && parent.CurrentState.Mouse.IsPositionValid)
+                lastEventPosition = parent.CurrentState.Mouse.Position;
 
             // The screen-space point the crosshair is held at, which is also the rest orientation of the camera and
             // therefore the origin absolute input is measured from.
@@ -258,6 +283,7 @@ namespace osu.Game.Rulesets.FPSosu.UI
             {
                 Vector2 position = parent.CurrentState.Mouse.Position;
 
+                // Mouse movement is applied by handleMouseMove from the event delta, not by polling the cursor.
                 switch (inputSource.Value)
                 {
                     case FPSosuInputSource.Tablet:
@@ -273,36 +299,18 @@ namespace osu.Game.Rulesets.FPSosu.UI
                         // same reason as above.
                         applyPlayfieldScaledLook(position);
                         break;
-
-                    default:
-                        // Rotate by however far the cursor moved since the last frame, rather than recentering it, so
-                        // the movement is applied exactly once regardless of frame timing.
-                        if (lastParentPosition is Vector2 last)
-                            rotateBy(position - last);
-
-                        lastParentPosition = position;
-                        break;
                 }
             }
 
             // Hold this manager's own cursor at the crosshair, where hits are registered.
             if (CurrentState.Mouse.Position != target)
                 new MousePositionAbsoluteInput { Position = target }.Apply(CurrentState, this);
+        }
 
-            // Keep the parent's cursor from running into the edge of the window, where it would stop reporting
-            // movement. Pull it back to the crosshair only once it drifts beyond a margin, so the frame-to-frame
-            // deltas above are left intact during normal play. This must not run for a tablet, whose absolute
-            // position would simply be re-reported.
-            if (inputSource.Value == FPSosuInputSource.Mouse && parent.CurrentState.Mouse.IsPositionValid)
-            {
-                float margin = Math.Min(parent.DrawSize.X, parent.DrawSize.Y) * 0.4f;
-
-                if (Vector2.Distance(parent.CurrentState.Mouse.Position, target) > margin)
-                {
-                    new MousePositionAbsoluteInput { Position = target }.Apply(parent.CurrentState, parent);
-                    lastParentPosition = target;
-                }
-            }
+        private void resetTracking()
+        {
+            lastEventPosition = null;
+            lastMoveEvent = null;
         }
     }
 }

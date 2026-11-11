@@ -51,6 +51,11 @@ namespace osu.Game.Rulesets.FPSosu.Projection
         public void LookAt(Vector2 angles) => LookAt(angles.X, angles.Y);
 
         /// <summary>
+        /// Brings the camera back inside its current <see cref="AngularLimit"/> without changing its orientation.
+        /// </summary>
+        public void Clamp() => LookAt(Yaw, Pitch);
+
+        /// <summary>
         /// Returns the camera to its resting orientation, looking at the centre of the playfield.
         /// </summary>
         public void Reset() => LookAt(0, 0);

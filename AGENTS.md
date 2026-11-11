@@ -51,9 +51,9 @@ Spinners are projected like any other object, so they sit at the centre of the b
 
 `FPSosuInputManager` turns movement of the parent input manager's cursor into camera rotation. Which device supplies it is chosen by the **Input source** setting (`FPSosuRulesetSetting.InputSource`).
 
-In **Mouse** mode it reads the frame-to-frame movement of the parent cursor. Measuring consecutive-position deltas (rather than recentering the cursor and reading its offset) applies every movement exactly once regardless of frame timing. The parent cursor is pulled back to the crosshair only once it drifts beyond a margin, so it never runs into the window edge and stops reporting movement.
+In **Mouse** mode it rotates the camera by the movement each `MouseMoveEvent` reports. Driving rotation from the event (rather than polling the parent cursor's position) applies every movement exactly once and keeps a stale cursor position from turning the camera; this matters on platforms which cannot warp the pointer, where an attempted recentre used to feed the old position back as a huge movement. Unbounded turning therefore requires osu!'s relative (raw) mouse input; in absolute mode the cursor eventually reaches the window edge and that direction stops until it is moved back.
 
-In **Tablet (mouse sensitivity)** mode the pen's *absolute* position points the camera directly, with the pen at the crosshair looking straight ahead, turned at the same rate per unit of movement as the mouse. This is what a graphics tablet reports (osu! reads it through OpenTabletDriver and re-asserts it every report), so the relative path cannot serve it: pulling the parent cursor back to the crosshair is immediately undone, and the disagreement shows up as the next frame's enormous delta. Absolute modes therefore never override the parent cursor at all.
+In **Tablet (mouse sensitivity)** mode the pen's *absolute* position points the camera directly, with the pen at the crosshair looking straight ahead, turned at the same rate per unit of movement as the mouse. This is what a graphics tablet reports (osu! reads it through OpenTabletDriver and re-asserts it every report), so the relative path cannot serve it. Absolute modes therefore never override the parent cursor: a tablet would undo the override on its next report.
 
 In **Standard tablet style** mode the pen is mapped onto the beatmap instead: `FPSosuPlayfield.ScreenToPlayfieldAngles` converts the pen's screen position into a playfield position and then into camera angles, so the pen points at a beatmap position exactly as it does in standard osu!. The playfield's own transform does not move with the camera (only the hit objects inside it do), so the conversion is stable from frame to frame. Sensitivity deliberately does not apply here, because the playfield span already defines how far the pen must travel to cross the beatmap.
 
@@ -71,7 +71,7 @@ Two deliberate deviations from osu!: the playfield's storyboard alignment shift 
 
 ```bash
 dotnet build   # must be 0 errors, 0 warnings
-dotnet test    # 61 tests
+dotnet test    # 65 tests
 ```
 
 Tests cover the projection invariants (round-trips, span/FOV independence, clamping), the camera, and real gameplay through `PlayerTestScene`. The key end-to-end check is `TestSceneFPSosuAutoplay`: autoplay must build combo with **zero misses** while the camera rotates, which proves the projection preserved playability. `TestSceneFPSosuPlayer` also covers the input sources: tablet modes must point the camera from the pen's absolute position without overriding the cursor, **Tablet (mouse sensitivity)** must turn as far per unit of movement as the mouse, and **Standard tablet style** must land the pen on a beatmap position regardless of the Sensitivity slider.

@@ -20,7 +20,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
     public class TestFPSosuModList
     {
         private static readonly Type[] removed_mods =
-        {
+        [
             typeof(OsuModAutoplay),
             typeof(OsuModAutopilot),
             typeof(OsuModCinema),
@@ -36,7 +36,7 @@ namespace osu.Game.Rulesets.FPSosu.Tests
             typeof(OsuModRepel),
             typeof(OsuModMagnetised),
             typeof(OsuModNoScope),
-        };
+        ];
 
         [Test]
         public void TestIncompatibleModsAreHidden()
