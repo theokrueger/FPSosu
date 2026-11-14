@@ -123,10 +123,13 @@ namespace osu.Game.Rulesets.FPSosu.UI
             path.Vertices = run;
             path.Alpha = 1;
 
-            // Path draws its vertices relative to the top-left of their bounding box, so shift it back so the
-            // vertices land at their true playfield coordinates.
-            float minX = float.MaxValue;
-            float minY = float.MaxValue;
+            // Path draws its vertices relative to the top-left of their bounding box, so the position has to be that
+            // same top-left for the vertices to land at their true playfield coordinates. The box is grown from the
+            // origin rather than from the first vertex (Path.vertexBounds starts its minimum at zero), so the minimum
+            // here starts at zero too: a run which lies entirely in positive coordinates has a box top-left of zero,
+            // and offsetting it would displace the run by its own minimum.
+            float minX = 0;
+            float minY = 0;
 
             foreach (var sample in run)
             {

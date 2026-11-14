@@ -71,12 +71,26 @@ Two deliberate deviations from osu!: the playfield's storyboard alignment shift 
 
 ```bash
 dotnet build   # must be 0 errors, 0 warnings
-dotnet test    # 72 tests
+dotnet test    # 74 tests
 ```
 
 Tests cover the projection invariants (round-trips, span/FOV independence, clamping), the camera, and real gameplay through `PlayerTestScene`. The key end-to-end check is `TestSceneFPSosuAutoplay`: autoplay must build combo with **zero misses** while the camera rotates, which proves the projection preserved playability. `TestSceneFPSosuPlayer` also covers the input sources: tablet modes must point the camera from the pen's absolute position without overriding the cursor, **Tablet (mouse sensitivity)** must turn as far per unit of movement as the mouse, and **Standard tablet style** must land the pen on a beatmap position regardless of the Sensitivity slider.
 
+`TestFPSosuPlayfieldBoundary` checks that every border vertex is drawn where it was projected, in both projection modes. This is not a formality: a `Path` draws its vertices relative to the top-left of its bounding box, and that box is grown from the origin rather than from the vertices (`Path.vertexBounds` starts its minimum at zero), so a run which sits entirely in positive playfield coordinates has a box top-left of zero. Offsetting such a run by its own minimum displaces the whole run, and because the border is only split into separate runs once the camera turns, the mistake is invisible at rest.
+
 `TestFPSosuRulesetRegistration` reproduces the registration bug described below against a real ruleset store, and `TestFPSosuRulesetSurface` fails if the registered ruleset stops forwarding an osu! override (which is what makes osu! updates safe).
+
+### Package versions
+
+The `ppy.osu.Game` and `ppy.osu.Game.Rulesets.Osu` references must **never** be newer than the game release people actually run. Bumping them past the installed client does not fail loudly, it makes the ruleset silently vanish from the game.
+
+The reference is compiled into the assembly as an exact `AssemblyRef` version. A ruleset that asks for an assembly *older* than the one the game has loaded still binds to it, which is why pinning below the client is always safe. Asking for a *newer* one makes the runtime raise `AppDomain.AssemblyResolve`, and osu!'s handler (`RulesetStore.resolveRulesetDependencyAssembly`) resolves dependencies by substring match on the requested name, keeping the highest version among the matches. `"osu.Game.Rulesets.Osu, Version=..."` contains `"osu.Game"`, so the handler hands back **`osu.Game`** for it, and every type in the osu! ruleset then fails to load:
+
+```text
+Could not load type 'osu.Game.Rulesets.Osu.OsuRuleset' from assembly 'osu.Game, Version=...'
+```
+
+That surfaces as `ReflectionTypeLoadException` out of `RulesetStore.addRuleset`, one error per osu! type, and the ruleset is dropped. The current pin (2026.916.0) is the newest package which does not exceed the last **lazer stable** release (2026.1005.0); newer package versions come from tachyon tags and require a tachyon client. Before bumping, check that osu! has published a release at least as new as the package, and after bumping, install the built DLL into `~/.local/share/osu/rulesets` and confirm the game logs no `An issue with ruleset "FPSosu" occurred`.
 
 ## Key Bindings
 
